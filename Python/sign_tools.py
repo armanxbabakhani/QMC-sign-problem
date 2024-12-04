@@ -3,10 +3,7 @@ import sys
 from scipy.linalg import lu
 from collections import defaultdict
 
-
-
 N = 0
-
 
 def transpose_permutations(permutations):
     row_number = len(permutations)
@@ -18,9 +15,15 @@ def transpose_permutations(permutations):
 
     return PermMatrix
 
-import numpy as np
 
-def mod2_nullspace(binary_vectors):
+def binary_to_indices(binary_vector):
+    indices = []
+    for i in range(len(binary_vector)):
+        if binary_vector[i] == 1:
+            indices.append(i)
+    return indices
+
+def mod2_nullspace(BinaryVectors):
     """
     Finds the null space of a set of binary vectors mod 2.
 
@@ -31,7 +34,7 @@ def mod2_nullspace(binary_vectors):
         list of list of int: The null space vectors in mod 2 as a list of binary vectors.
     """
     # Convert to a numpy array and ensure all entries are mod 2
-    A = np.array(transpose_permutations(binary_vectors), dtype=int) % 2
+    A = np.array(transpose_permutations(BinaryVectors), dtype=int) % 2
     n_rows, n_cols = A.shape
 
     # Augment the matrix with an identity matrix to track nullspace
@@ -66,15 +69,62 @@ def mod2_nullspace(binary_vectors):
 
     return null_space
 
+def evaluate_diagonal(State , ZStringIndices):
+    """
+    
+    The input state is a binary np.array, i.e. a computational basis state
+    The input z_string_indices is an np.array of integers representing which particle there is a pauli-Z action on.
+    
+    """
+
+    diag = 1.0
+    for particle_no in ZStringIndices:
+        diag *= (-1.0)**State[particle_no]
+    return diag
+
+def permute_state(State , XStringIndices):
+    """
+    
+    The input state is a binary np.array, i.e. a computational basis state
+    The input z_string_indices is an np.array of integers representing which particle there is a pauli-X action on.
+    
+    """
+    for particle_no in XStringIndices:
+        State[particle_no] = (State[particle_no] + 1)%2 
+
+    return State
+
+def cycle_weight(InitialState , CycleDiags , CyclePerms):
+    """
+
+    The input InitialState is a binary np.array specifying a computational state |z>
+    The input cycle_diags is the diagonals for each cycle_perm permutation. Each diagonal term is represented by a linear combination of Z-string operators. Each Z-string operator is a vector of integers representing
+        which particle there is a pauli-Z action on.
+    The input cycle_perms are binary vectors specifying the string of pauli-X. Each X-string operator is a vector of integers representing which particle there is a pauli-X action on.
+
+    """
+    weight = 1.0
+    state = InitialState
+    for i in range(len(CycleDiags)):
+        diag_j = 0.0
+        for j in range(len(CycleDiags[i][0])):
+            diag_j += CycleDiags[i][0][j]*evaluate_diagonal(state , CycleDiags[i][1][j])
+            #weight *= cycle_diags[i][0][j]     # multiplying by the coefficient!
+            #weight *= evaluate_diagonal(state , cycle_diags[i][1][j])      # multiplying by the weight of the diagonal!
+        #if diag_j != 0:
+        weight *= diag_j
+        state = permute_state(state , CyclePerms[i])
+    return weight
 
 
 def parse_pauli_file(filename):
     global N
     """
-    
+
     Parses the input file and returns a list of coefficients and corresponding binary vectors.
 
     """
+
     coefficients = []
     binary_vectors = []
 
@@ -121,8 +171,29 @@ def parse_pauli_file(filename):
 
     return coefficients, binary_vectors
 
-def process_pauli_terms(coefficients, binary_vectors):
+def convert_diagonal_to_indices(DiagonalsBinary):
+    DiagonalsIndices = DiagonalsBinary
+    for i in range(len(DiagonalsIndices)):
+        term = DiagonalsIndices[i]
+        z_string_indices = []
+        for Zstring in term[1]:
+            z_string_indices.append(binary_to_indices(Zstring))
+        DiagonalsIndices[i] = (term[0] , z_string_indices)
+    return DiagonalsIndices
+
+
+def convert_binary_cycles_to_indices(NullspaceBinary , PermutationIndices , OffdiagonalIndices):
+    NullspaceIndices = []
+    OffdiagonalCycles = []
+    for j in range(len(NullspaceBinary)):
+        NullspaceIndices.append([PermutationIndices[i] for i in range(N) if NullspaceBinary[j][i]==1 ])
+        OffdiagonalCycles.append([OffdiagonalIndices[i] for i in range(N) if NullspaceBinary[j][i]==1 ])
+    return NullspaceIndices , OffdiagonalCycles
+
+def process_pauli_terms(Coefficients, BinaryVectors):
+
     """
+
     Processes the Pauli terms to group by their Pauli X action (first N binary coefficients),
     and combines terms with matching Z-action vectors.
 
@@ -133,43 +204,73 @@ def process_pauli_terms(coefficients, binary_vectors):
     Returns:
         list: Permutations - unique binary vectors of N indices representing the Pauli X action.
         list: Diagonals - tuples of (list of coefficients, list of Z-action binary vectors).
+
     """
 
     # Group terms by their Pauli X action
     grouped_terms = defaultdict(lambda: defaultdict(complex))
-    for coeff, vector in zip(coefficients, binary_vectors):
+    for coeff, vector in zip(Coefficients, BinaryVectors):
         x_action = tuple(vector[:N])  # First N indices
         z_action = tuple(vector[N:])  # Last N indices
         grouped_terms[x_action][z_action] += coeff  # Add coefficients for matching Z-action
 
     # Build permutations and diagonals
     permutations = []
+    off_diagonals = []
     diagonals = []
 
     for x_action, z_terms in grouped_terms.items():
-        permutations.append(list(x_action))
+        perm = np.array(x_action)
         coeff_list = []
         z_vectors = []
         for z_action, coeff in z_terms.items():
             coeff_list.append(coeff)
             z_vectors.append(list(z_action))
-        diagonals.append((coeff_list, z_vectors))  # Store as tuple (coefficients, binary vectors)
-
-    return permutations, diagonals
-
+        if np.all(perm == 0):
+            diagonals.append((coeff_list, z_vectors))
+        else:
+            permutations.append(np.array(x_action))
+            off_diagonals.append((coeff_list, z_vectors))  # Store as tuple (coefficients, binary vectors)
+    return permutations, off_diagonals , diagonals
 
 # Example usage:
-
 filename = sys.argv[1]
 coefficients, binary_vectors = parse_pauli_file(filename)
-print( "Coefficients: " , coefficients)
-print( "Binary Vectors: " , binary_vectors)
+print("Coefficients: " , coefficients)
+print("Binary Vectors: " , binary_vectors)
+print(" ")
+permutations_binary , offdiagonals_binary , pure_diagonals = process_pauli_terms(coefficients , binary_vectors)
 
-permutations , diagonals = process_pauli_terms(coefficients , binary_vectors)
-PermMatrix = transpose_permutations(permutations)
+# Convert the binary permutations to integer particle number permutations
+permutation_indices = []
+for permutation in permutations_binary:
+    permutation_indices.append(binary_to_indices(permutation))
 
-print( "Permutations are: " , permutations )
-print( "Diagonals are: " , diagonals )
+offdiagonals_indices = convert_diagonal_to_indices(offdiagonals_binary)
 
-#print("Null space mod 2:", null_space)
-print(" The cycles are : " , mod2_nullspace(permutations))
+print("Permutations are: " , permutations_binary )
+print("Diagonals are: " , offdiagonals_binary )
+print("Diagonals in indices are: " , offdiagonals_indices)
+print(" ")
+null_space = mod2_nullspace(permutations_binary)
+print("The cycles are : " , null_space)
+
+NullspaceIndices , OffdiagonalCycles = convert_binary_cycles_to_indices(null_space , permutation_indices , offdiagonals_indices)
+
+
+#perm_cycle = [permutation_indices[i] for i in range(N) if null_space[0][i]==1 ]
+#offdiag_cycle = [offdiagonals_indices[i] for i in range(N) if null_space[0][i]==1]
+#print(f"The permutation cycle is {perm_cycle}")
+#offdiag_cycle = [[[3 , 3] , [[0,1] , [2]]] , [[2] , [[0]]] , [[-7] , [[2]]]]
+
+trial_state = [0]*N
+trial_state[1] = 1
+print(" ")
+print("The cycle is " , NullspaceIndices[0])
+print("The off diagonal cycle is " , OffdiagonalCycles[0])
+
+trial_weight = cycle_weight(trial_state , OffdiagonalCycles[0] , NullspaceIndices[0])
+
+print(" ")
+print("The trial state is " , trial_state)
+print("The trial weight is " , trial_weight)
