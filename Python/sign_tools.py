@@ -3,6 +3,7 @@ import sys
 from scipy.linalg import lu
 from collections import defaultdict
 import itertools
+import cmath
 
 N = 0
 
@@ -95,7 +96,7 @@ def permute_state(State , XStringIndices):
 
     return State
 
-def cycle_weight(InitialState , CycleDiags , CyclePerms):
+def single_cycle_weight(InitialState , CycleDiags , CyclePerms):
     """
 
     The input InitialState is a binary np.array specifying a computational state |z>
@@ -110,16 +111,11 @@ def cycle_weight(InitialState , CycleDiags , CyclePerms):
         diag_j = 0.0
         for j in range(len(CycleDiags[i][0])):
             diag_j += CycleDiags[i][0][j]*evaluate_diagonal(state , CycleDiags[i][1][j])
-            #weight *= cycle_diags[i][0][j]     # multiplying by the coefficient!
-            #weight *= evaluate_diagonal(state , cycle_diags[i][1][j])      # multiplying by the weight of the diagonal!
-        #if diag_j != 0:
         weight *= diag_j
         state = permute_state(state , CyclePerms[i])
     return weight
 
-
 def parse_pauli_file(filename):
-    global N
     """
 
     Parses the input file and returns a list of coefficients and corresponding binary vectors.
@@ -170,7 +166,7 @@ def parse_pauli_file(filename):
             coefficients.append(coefficient)
             binary_vectors.append(binary_vector)
 
-    return coefficients, binary_vectors
+    return coefficients, binary_vectors , N
 
 def convert_diagonal_to_indices(DiagonalsBinary):
     DiagonalsIndices = DiagonalsBinary
@@ -182,16 +178,18 @@ def convert_diagonal_to_indices(DiagonalsBinary):
         DiagonalsIndices[i] = (term[0] , z_string_indices)
     return DiagonalsIndices
 
-
-def convert_binary_cycles_to_indices(NullspaceBinary , PermutationIndices , OffdiagonalIndices):
+def convert_binary_cycles_to_indices(NullspaceBinary , PermutationIndices , OffdiagonalIndices , NumOfParticles):
     NullspaceIndices = []
     OffdiagonalCycles = []
+    N = NumOfParticles
     for j in range(len(NullspaceBinary)):
-        NullspaceIndices.append([PermutationIndices[i] for i in range(N) if NullspaceBinary[j][i]==1 ])
-        OffdiagonalCycles.append([OffdiagonalIndices[i] for i in range(N) if NullspaceBinary[j][i]==1 ])
+        for i in range(N):
+            if NullspaceBinary[j][i]==1:
+                NullspaceIndices.append(PermutationIndices[i])
+                OffdiagonalCycles.append(OffdiagonalIndices[i])
     return NullspaceIndices , OffdiagonalCycles
 
-def process_pauli_terms(Coefficients, BinaryVectors):
+def process_pauli_terms(Coefficients, BinaryVectors , NumOfParticles):
 
     """
 
@@ -207,7 +205,7 @@ def process_pauli_terms(Coefficients, BinaryVectors):
         list: Diagonals - tuples of (list of coefficients, list of Z-action binary vectors).
 
     """
-
+    N = NumOfParticles
     # Group terms by their Pauli X action
     grouped_terms = defaultdict(lambda: defaultdict(complex))
     for coeff, vector in zip(Coefficients, BinaryVectors):
@@ -236,8 +234,11 @@ def process_pauli_terms(Coefficients, BinaryVectors):
 
 
 def generate_permutations(arr):
-    return list(itertools.permutations(arr))
-
+    AllPermutations = []
+    All = list(itertools.permutations(arr))
+    for perm in All:
+        AllPermutations.append(list(perm))
+    return AllPermutations
 
 def is_cyclic_equivalent(perm1, perm2):
     n = len(perm1)
@@ -255,14 +256,145 @@ def generate_cyclic_permutations(arr):
     unique_cyclic = filter_cyclic_equivalents(all_perms)
     return unique_cyclic
 
+def find_perm_index(P , AllPs):
+    for i in range(len(AllPs)):
+        if np.array_equal(P , AllPs[i]):
+            return i
+    return "There is a problem: The permutation was not found!"
+
+def generate_cycle_diagonals(Cycle , AllPerms , AllDs):
+    CycleDs = []
+    for Perm in Cycle:
+        PermIndex = find_perm_index(Perm , AllPerms)
+        CycleDs.append(AllDs[PermIndex])
+    
+    return CycleDs
+
+def generate_cyclic_permutations_with_offdiagonals(PermCycs , AllPs , AllDs):
+    # Generate all permutations of the paired array
+    UniquePermutations = generate_cyclic_permutations(PermCycs)
+    #UniquePermutations = filter_cyclic_equivalents(Permutations)
+    UniqueDiagonals = [generate_cycle_diagonals(Cycle , AllPs , AllDs) for Cycle in UniquePermutations]
+    return UniquePermutations , UniqueDiagonals
+
+
+def int_to_binary_array(n , N):
+    binary_string = bin(n)[2:]  # Convert to binary and remove '0b' prefix
+    binary_array = [int(bit) for bit in binary_string]  # Convert to an array of integers
+    return binary_array[::-1] + [0]*(N-len(binary_array))
+
+def total_cost_of_cycle(CycleDiags , CyclePerm , TotalParticles):
+    N = TotalParticles
+    SignFactor = (-1.0)**len(CycleDiags)
+    cost = 0.0
+    for i in range(2**N):
+        State = int_to_binary_array(i , N)
+        weight = single_cycle_weight(State , CycleDiags , CyclePerm)*SignFactor
+        r , theta = cmath.polar(weight)
+        #if r > 1E-6:
+        #    print(f'The state is {State} and the permutation cycle is {CyclePerm}')
+        #    print(f'The r is {r} and theta is {theta}')
+        cost += r*(1.0-np.cos(theta))
+    return cost
+
+#def add_pair_to_cycle(Cycle , CycleDs , Permutation , Ds):
+def add_pair_to_cycle(Cycle , CycleDs , Permutation , Ds):
+    """
+    
+    The input Cycle is a length three cycle generator and CycleDs are the corresponding diagonal terms for the list of permutations in Cycle.
+    This function adds pairs of Permutation in between the permutations appearing in the cycle so that no two identical permutations are next to each other.
+
+    """
+
+    # We just need to add the diagonals accordingly ... !!!!!!!!
+    HigherCycles = []
+    HigherCycleDs = []
+    # Iterate over all positions to insert the two identical Permutations
+    for i in range(len(Cycle) + 1):
+        for j in range(i+1, len(Cycle) + 1):
+            # Create a new list by inserting the Permutations
+            NewCycle = Cycle[:i] + [Permutation] + Cycle[i:j] + [Permutation] + Cycle[j:]
+            NewDs = CycleDs[:i] + [Ds] + CycleDs[i:j] + [Ds] + CycleDs[j:]
+            # Check for the condition: no two neighboring elements are identical
+            NearNeighbor = [not np.array_equal(NewCycle[k] , NewCycle[k+1]) for k in range(len(NewCycle)-1)]
+            if all(NearNeighbor):
+                HigherCycles.append(NewCycle)
+                HigherCycleDs.append(NewDs)
+    
+    return HigherCycles , HigherCycleDs
+
+
+def generate_higher_cycles(PermCycInds, OffDsCycInds , PermIndices , OffDsIndices):
+    HighCycles = []
+    HighOffDiags = []
+
+    # Generating length 4 cycles:
+    # Build length 4 cycles:
+        # Recipe:
+            # Take any two different permutation, e.g. P1 and P2 , then the only contributing cycle is P1 P2 P1 P2
+            # Do this for all unique pairs
+
+    for i in range(len(PermIndices)):
+        for j in np.arange(i+1 , len(PermIndices)):
+            HighCycles.append([PermIndices[i] , PermIndices[j] , PermIndices[i] , PermIndices[j]])
+            HighOffDiags.append([OffDsIndices[i] , OffDsIndices[j] , OffDsIndices[i] , OffDsIndices[j]])
+    
+    # Generating length 5 cycles:
+    # Build length 5 cycles:
+        # Recipe: 
+            # Take any length 3 fundamental cycle generator from the nullspace
+            # Add pairs of permutations in a non-trivial order, e.g. lets say we have a fund cycle generator of P1 P2 P3 = 1, then
+            #   take any other permutation P4, and create length 5 cycle generators by creating permutations such as
+            #   P4 P1 P2 P4 P3 , P4 P1 P2 P3 P4 , ... , P1 P4 P2 P4 P3 , P1 P2 P4 P3 P4 , ...
+
+    for FundCyc , FundCycDs in zip(PermCycInds , OffDsCycInds):
+        if len(FundCyc) < 4:
+            for Perm , Ds in zip(PermIndices , OffDsIndices):
+                CycPs , CycDs = add_pair_to_cycle(FundCyc , FundCycDs , Perm , Ds)
+                HighCycles += CycPs
+                HighOffDiags += CycDs
+    return HighCycles , HighOffDiags
+
+
+def get_all_cycles_from_file(filename):
+    coefficients, binary_vectors , NumOfParticles = parse_pauli_file(filename)
+    #print(f'binary vectors are {binary_vectors}')
+    permutations_binary , offdiagonals_binary , pure_diagonals = process_pauli_terms(coefficients , binary_vectors , NumOfParticles)
+    #print(f'The permutation binary is {permutations_binary}')
+    PermutationIndices = []
+
+    Cycles_q = {}
+
+    for permutation in permutations_binary:
+        PermutationIndices.append(binary_to_indices(permutation))
+    OffDiagonalsIndices = convert_diagonal_to_indices(offdiagonals_binary)
+    NullSpace = mod2_nullspace(permutations_binary)
+  
+    PermCycleIndices , OffDiagCycleIndices = convert_binary_cycles_to_indices(NullSpace , PermutationIndices , OffDiagonalsIndices , NumOfParticles)
+    FundCyclesIndices , FundCycOffDiagsIndices = generate_cyclic_permutations_with_offdiagonals(PermCycleIndices , PermutationIndices , OffDiagonalsIndices)
+    
+    # Generate all fundamental cycles up to length 5:
+    # Take in AllCyclesIndices, AllOffDiagsIndices, PermutationIndices , OffDiagonalsIndices and output all cycles of length > 2
+    HighCycles , HighOffDiags = generate_higher_cycles(FundCyclesIndices , FundCycOffDiagsIndices , PermCycleIndices , OffDiagCycleIndices)
+
+    AllCycles = FundCyclesIndices + HighCycles
+    AllCycOffDs = FundCycOffDiagsIndices + HighOffDiags
+
+    for i in range(len(AllCycles)):
+        q = len(AllCycles[i])
+        if q not in Cycles_q :
+            Cycles_q[q] = {'Permutation Cycles':[] , 'Diagonal Cycles': []}
+        Cycles_q[q]['Permutation Cycles'].append(AllCycles[i])
+        Cycles_q[q]['Diagonal Cycles'].append(AllCycOffDs[i])
+
+    return Cycles_q , NumOfParticles
+
+
+def total_hamiltonian_cost(AllCycleDiags , AllCyclePerms , NumOfParticles):
+    cost = 0.0
+    for i in range(len(AllCyclePerms)):
+        costq = total_cost_of_cycle(AllCycleDiags[i] , AllCyclePerms[i] , NumOfParticles)
+        cost += total_cost_of_cycle(AllCycleDiags[i] , AllCyclePerms[i] , NumOfParticles)
+    return cost
+
 # ===================================== TESTING ================================================
-
-perm = [[0 , 1] , [1 , 2] , [2 , 3] , [3, 0]]
-
-UniqPerms = generate_cyclic_permutations(perm)
-
-print("The UniqPerms are ", UniqPerms)
-
-
-# 1- GENERATE non-cyclic permutations for cycle!
-#   - Test this for other higher length cycles! 
