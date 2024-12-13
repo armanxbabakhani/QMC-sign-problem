@@ -4,6 +4,7 @@ from scipy.linalg import lu
 from collections import defaultdict
 import itertools
 import cmath
+import random
 
 N = 0
 
@@ -94,8 +95,6 @@ def permute_state(State , XStringIndices):
     for particle_no in XStringIndices:
         State[particle_no] = (State[particle_no] + 1)%2 
 
-    return State
-
 def single_cycle_weight(InitialState , CycleDiags , CyclePerms):
     """
 
@@ -112,8 +111,9 @@ def single_cycle_weight(InitialState , CycleDiags , CyclePerms):
         for j in range(len(CycleDiags[i][0])):
             diag_j += CycleDiags[i][0][j]*evaluate_diagonal(state , CycleDiags[i][1][j])
         weight *= diag_j
-        state = permute_state(state , CyclePerms[i])
+        permute_state(state , CyclePerms[i])
     return weight
+
 
 def parse_pauli_file(filename):
     """
@@ -169,7 +169,7 @@ def parse_pauli_file(filename):
     return coefficients, binary_vectors , N
 
 def convert_diagonal_to_indices(DiagonalsBinary):
-    DiagonalsIndices = DiagonalsBinary
+    DiagonalsIndices = DiagonalsBinary.copy()
     for i in range(len(DiagonalsIndices)):
         term = DiagonalsIndices[i]
         z_string_indices = []
@@ -181,12 +181,17 @@ def convert_diagonal_to_indices(DiagonalsBinary):
 def convert_binary_cycles_to_indices(NullspaceBinary , PermutationIndices , OffdiagonalIndices , NumOfParticles):
     NullspaceIndices = []
     OffdiagonalCycles = []
-    N = NumOfParticles
+    M = len(PermutationIndices)
     for j in range(len(NullspaceBinary)):
-        for i in range(N):
+        NullPermj = []
+        NullDiagj = []
+        for i in range(M):
             if NullspaceBinary[j][i]==1:
-                NullspaceIndices.append(PermutationIndices[i])
-                OffdiagonalCycles.append(OffdiagonalIndices[i])
+                NullPermj.append(PermutationIndices[i])
+                NullDiagj.append(OffdiagonalIndices[i])
+        NullspaceIndices.append(NullPermj)
+        OffdiagonalCycles.append(NullDiagj)
+
     return NullspaceIndices , OffdiagonalCycles
 
 def process_pauli_terms(Coefficients, BinaryVectors , NumOfParticles):
@@ -228,7 +233,7 @@ def process_pauli_terms(Coefficients, BinaryVectors , NumOfParticles):
         if np.all(perm == 0):
             diagonals.append((coeff_list, z_vectors))
         else:
-            permutations.append(np.array(x_action))
+            permutations.append(list(x_action))
             off_diagonals.append((coeff_list, z_vectors))  # Store as tuple (coefficients, binary vectors)
     return permutations, off_diagonals , diagonals
 
@@ -252,9 +257,11 @@ def filter_cyclic_equivalents(permutations):
     return unique_cyclic
 
 def generate_cyclic_permutations(arr):
-    all_perms = generate_permutations(arr)
-    unique_cyclic = filter_cyclic_equivalents(all_perms)
-    return unique_cyclic
+    AllPerms = []
+    for cyc in arr:
+        AllPerms += generate_permutations(cyc)
+    UniqueCyclic = filter_cyclic_equivalents(AllPerms)
+    return UniqueCyclic
 
 def find_perm_index(P , AllPs):
     for i in range(len(AllPs)):
@@ -373,9 +380,16 @@ def get_all_cycles_from_file(filename):
     PermCycleIndices , OffDiagCycleIndices = convert_binary_cycles_to_indices(NullSpace , PermutationIndices , OffDiagonalsIndices , NumOfParticles)
     FundCyclesIndices , FundCycOffDiagsIndices = generate_cyclic_permutations_with_offdiagonals(PermCycleIndices , PermutationIndices , OffDiagonalsIndices)
     
+    #print(' ')
+    #print('Inside of the original function!')
+    #print(f'Permutation indices are {PermutationIndices}')
+    #print(f'Diagonal indices are {OffDiagonalsIndices}')
+    #print(f'Nullspace is {NullSpace}')
+    #print(' ')
+
     # Generate all fundamental cycles up to length 5:
     # Take in AllCyclesIndices, AllOffDiagsIndices, PermutationIndices , OffDiagonalsIndices and output all cycles of length > 2
-    HighCycles , HighOffDiags = generate_higher_cycles(FundCyclesIndices , FundCycOffDiagsIndices , PermCycleIndices , OffDiagCycleIndices)
+    HighCycles , HighOffDiags = generate_higher_cycles(FundCyclesIndices , FundCycOffDiagsIndices , PermutationIndices , OffDiagonalsIndices)
 
     AllCycles = FundCyclesIndices + HighCycles
     AllCycOffDs = FundCycOffDiagsIndices + HighOffDiags
@@ -393,8 +407,102 @@ def get_all_cycles_from_file(filename):
 def total_hamiltonian_cost(AllCycleDiags , AllCyclePerms , NumOfParticles):
     cost = 0.0
     for i in range(len(AllCyclePerms)):
-        costq = total_cost_of_cycle(AllCycleDiags[i] , AllCyclePerms[i] , NumOfParticles)
         cost += total_cost_of_cycle(AllCycleDiags[i] , AllCyclePerms[i] , NumOfParticles)
     return cost
+
+# ========================= Clifford rotation functions ====================================
+
+def permutation_found(Perm , PermList):
+    for i in range(len(PermList)):
+        if Perm == PermList[i]:
+            return True , i
+        
+    return False , -1
+
+def Sbinary_xvec_zvec_onspins(Xvec , Zvec , Spins):
+    """ 
+    binary operations on the X and Z vectors inducing a Hadamard rotation
+
+    """
+    Xvecfinal = Xvec.copy()
+    Zvecfinal = Zvec.copy()
+    phase = 1.0
+    for spin in Spins:
+        BinXZ = ( Xvec[spin] + Zvec[spin] ) % 2
+        Zvecfinal[spin] = BinXZ
+        phase *= ((-1)**(Xvec[spin]))*((1.0j)**(BinXZ))
+    return Xvecfinal , Zvecfinal , phase
+
+def Hbinary_xvec_zvec_onspins(Xvec , Zvec , Spins):
+    """ 
+    binary operations on the X and Z vectors inducing a S rotation
+    
+    """
+    Xvecfinal = Xvec.copy()
+    Zvecfinal = Zvec.copy()
+    phase = 1.0
+    for spin in Spins:
+        Xvecfinal[spin] = Zvec[spin]
+        Zvecfinal[spin] = Xvec[spin]
+        phase *= ((-1)**(Xvec[spin] & Zvec[spin]))
+    
+    return Xvecfinal , Zvecfinal , phase
+
+def apply_single_body(AllPerms, AllDiags , Spins , SingleBodyType):
+    """
+
+    Apply single body rotations on specified Spins.
+
+    """
+    AllPermsTransformed = []
+    AllDiagsTransformed = []
+
+    for i in range(len(AllDiags)):
+        for j in range(len(AllDiags[i][1])):
+            if SingleBodyType in ['H' , 'Hadamard' , 'hadamard']:
+                NewPermutation , NewDiagonal , phase = Hbinary_xvec_zvec_onspins(AllPerms[i] , AllDiags[i][1][j] , Spins)
+            elif SingleBodyType in ['S' , 'Sgate' , 'S-gate']:
+                NewPermutation , NewDiagonal , phase = Sbinary_xvec_zvec_onspins(AllPerms[i] , AllDiags[i][1][j] , Spins)
+            else:
+                raise ValueError("The specified rotation does not exist.. There are only Hadamard and S-gate single body rotations available.")
+
+            PermFound , index = permutation_found(NewPermutation , AllPermsTransformed)
+            coefficient = phase*AllDiags[i][0][j]
+            if not PermFound:
+                AllPermsTransformed.append(NewPermutation)
+                AllDiagsTransformed.append([[coefficient] , [NewDiagonal]])
+            else:
+                AllDiagsTransformed[index][0].append(coefficient)
+                AllDiagsTransformed[index][1].append(NewDiagonal)
+
+    return AllPermsTransformed, AllDiagsTransformed
+
+
+def apply_random_transformation(Probabilities , AllPerms , AllDiags):
+    """
+    The input 'Probabilities' specifies the probability of single, two, or three body rotations
+    """
+    ProbOneBody , ProbTwoBody , ProbThreeBody = Probabilities
+    p = random.random()
+    if p < ProbOneBody:
+        # Apply single body rotation
+        p1 = random.random()
+        if p1 <= 0.5:
+            # Apply hadamard at a randomly picked spin
+            RotationType = 'H'
+            Spins = [0]
+        else:
+            # Apply S gate at a randomly picked spin
+            RotationType = 'S'
+            Spins = [0]
+        AllPermsT , AllDiagsT = apply_single_body(AllPerms, AllDiags , Spins , RotationType)
+    elif p < ProbOneBody + ProbTwoBody:
+        # Apply two body rotation (CNOT)
+        # randomly pick a tuple (i , j) and apply CNOT with control on i spin , and target at j spin...
+        AllPermsT , AllDiagsT = apply_CNOT(AllPerms, AllDiags , [ControlSpin , TargetSpin])
+    else: 
+        # Apply two body rotation (CCNOT)
+        # randomly pick a tuple (i , j , k) and apply CCNOT with control on i and j spin , and target at k spin...
+        AllPermsT , AllDiagsT = apply_CCNOT(AllPerms, AllDiags , [ControlSpin1 , ControlSpin2 , TargetSpin])
 
 # ===================================== TESTING ================================================
