@@ -19,13 +19,6 @@ def total_cost_from_binary_operators(AllPermsBinary , AllDiagsBinary):
     OffDiagonalsIndices = convert_diagonal_to_indices(AllDiagsBinaryWOIden)
     NullSpace = mod2_nullspace(AllPermsBinaryWOIden)
 
-    #print(' ')
-    #print(f'Permutation indices are {PermutationIndices}')
-    #print(f'Diagonal indices are {OffDiagonalsIndices}')
-    #print(f'Nullspace is {NullSpace}')
-    #print(' ')
-
-
     # Generating all cycles of up to length 5:
     PermCycleIndices , OffDiagCycleIndices = convert_binary_cycles_to_indices(NullSpace , PermutationIndices , OffDiagonalsIndices , NumOfParticles)
 
@@ -56,12 +49,11 @@ def total_cost_from_binary_operators(AllPermsBinary , AllDiagsBinary):
 filename = sys.argv[1]
 Coefficients, BinaryVectors , NumOfParticles = parse_pauli_file(filename)
 AllPermsBinary , AllDiagsBinary , PureDiagonals = process_pauli_terms(Coefficients , BinaryVectors , NumOfParticles)
-
 if len(PureDiagonals)>0:
     AllPermsBinary.append([0]*NumOfParticles)
     AllDiagsBinary.append(PureDiagonals[0])
 
-TotalCost , CostsQ , CyclesQ = total_cost_from_binary_operators(AllPermsBinary , AllDiagsBinary)
+InitialTotalCost , CostsQ , CyclesQ = total_cost_from_binary_operators(AllPermsBinary , AllDiagsBinary)
 CyclesOriginal , N = get_all_cycles_from_file(filename)
 #print(f'The original cycles for q=4 is {CyclesOriginal[4]['Permutation Cycles']}')
 #print(f'The diagonal cycles of the original cycle for q=4 is {CyclesOriginal[4]['Diagonal Cycles']}')
@@ -71,17 +63,39 @@ CyclesOriginal , N = get_all_cycles_from_file(filename)
 #print(f'The cost for q=4 of the original cycles are {total_hamiltonian_cost(CyclesOriginal[4]['Diagonal Cycles'] , CyclesOriginal[4]['Permutation Cycles'] , N)}')
 #print(f'The Cycles for each q=4 is {CyclesQ[4]['Permutation Cycles']}')
 print(f'The cost for each q is {CostsQ}')
-print(f'The total cost of the Hamiltonian is {TotalCost}')
+print(f'The total cost of the Hamiltonian is {InitialTotalCost}')
 print(' ')
 
-AllPermsBinary , AllDiagsBinary = apply_single_body(AllPermsBinary , AllDiagsBinary , [0 , 1 , 2] , 'H')
+Probabilities = [0.5 , 0.25 , 0.25]
+TotalCost = InitialTotalCost
+while TotalCost > InitialTotalCost/5.0:
+    AllPermsBinary , AllDiagsBinary = apply_random_transformation(Probabilities , AllPermsBinary , AllDiagsBinary , NumOfParticles)
+    TotalCost , CostsQ , CyclesQ = total_cost_from_binary_operators(AllPermsBinary , AllDiagsBinary)
+    print('After transformation ... ')
+    #print(f'The Cycles for each q is {CyclesQ}')
+    print(f'The cost for each q is {CostsQ}')
+    print(f'The total cost of the Hamiltonian is {TotalCost}')
+    print(' ')
 
+# Apply a speicific transformation:
+#   Apparently an all S tranformation cures the sign problem?!
 
-TotalCost , CostsQ , CyclesQ = total_cost_from_binary_operators(AllPermsBinary , AllDiagsBinary)
-print('After transformation ... ')
-#print(f'The Cycles for each q is {CyclesQ}')
-print(f'The cost for each q is {CostsQ}')
-print(f'The total cost of the Hamiltonian is {TotalCost}')
+# Get the pure diagonal term:
+for i in range(len(AllPermsBinary)):
+    if AllPermsBinary[i] == [0]*NumOfParticles:
+        PureDiagonals = AllDiagsBinary[i]
+        IdentityIndex = i
+
+AllPermsBinary = AllPermsBinary[:IdentityIndex]+AllPermsBinary[IdentityIndex+1:]
+AllDiagsBinary = AllDiagsBinary[:IdentityIndex]+AllDiagsBinary[IdentityIndex+1:]
+
+print(f'The permutations are {AllPermsBinary}')
+print(f'The diagonals are {AllDiagsBinary}')
+print(f'The purely diagonals are {PureDiagonals}')
+
+# Writing back into an ouptut file:
+
+generate_pauli_file_from_pmr_data(filename.removesuffix(".txt")+'_sign_optimized.txt', AllPermsBinary , AllDiagsBinary , PureDiagonals)
 
 #AllCycles , NumberOfParticles = get_all_cycles_from_file(filename)
 

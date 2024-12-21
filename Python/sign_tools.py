@@ -15,9 +15,7 @@ def transpose_permutations(permutations):
     for i in range(row_number):
         for j in range(col_number):
             PermMatrix[j][i] = permutations[i][j]
-
     return PermMatrix
-
 
 def binary_to_indices(binary_vector):
     indices = []
@@ -25,6 +23,26 @@ def binary_to_indices(binary_vector):
         if binary_vector[i] == 1:
             indices.append(i)
     return indices
+
+def indices_to_binary(IndicesVector, NumOfSpins):
+    """
+    Converts a list of indices into a binary vector of given length.
+
+    Parameters:
+        indices (list of int): Indices where the binary vector should have 1s.
+        number_of_spins (int): The length of the resulting binary vector.
+
+    Returns:
+        list of int: Binary vector with 1s at the specified indices.
+    """
+    BinaryVector = [0] * NumOfSpins  # Initialize with zeros
+    for index in IndicesVector:
+        if 0 <= index < NumOfSpins:  # Ensure index is within bounds
+            BinaryVector[index] = 1
+        else:
+            raise ValueError(f"Index {index} is out of bounds for vector of length {NumOfSpins}")
+    return BinaryVector
+
 
 def mod2_nullspace(BinaryVectors):
     """
@@ -79,7 +97,6 @@ def evaluate_diagonal(State , ZStringIndices):
     The input z_string_indices is an np.array of integers representing which particle there is a pauli-Z action on.
     
     """
-
     diag = 1.0
     for particle_no in ZStringIndices:
         diag *= (-1.0)**State[particle_no]
@@ -178,6 +195,32 @@ def convert_diagonal_to_indices(DiagonalsBinary):
         DiagonalsIndices[i] = (term[0] , z_string_indices)
     return DiagonalsIndices
 
+def convert_indices_to_diagonal(DiagonalsIndices, NumOfSpins):
+    """
+    Converts a list of coefficients and indices for the action of Pauli-Z 
+    into coefficients and binary vectors.
+
+    Parameters:
+        DiagonalsIndices (list of tuples): Each tuple contains:
+            - List of coefficients (list of complex or float).
+            - List of lists of indices where Pauli-Z acts.
+        number_of_spins (int): The length of each binary vector.
+
+    Returns:
+        list of tuples: Each tuple contains:
+            - List of coefficients.
+            - List of binary vectors representing Pauli-Z actions.
+    """
+    DiagonalsBinary = DiagonalsIndices.copy()
+    for i in range(len(DiagonalsBinary)):
+        term = DiagonalsBinary[i]
+        z_string_binaries = []
+        for Zstring_indices in term[1]:
+            z_string_binaries.append(indices_to_binary(Zstring_indices, NumOfSpins))
+        DiagonalsBinary[i] = (term[0], z_string_binaries)
+    return DiagonalsBinary
+
+
 def convert_binary_cycles_to_indices(NullspaceBinary , PermutationIndices , OffdiagonalIndices , NumOfParticles):
     NullspaceIndices = []
     OffdiagonalCycles = []
@@ -237,7 +280,6 @@ def process_pauli_terms(Coefficients, BinaryVectors , NumOfParticles):
             off_diagonals.append((coeff_list, z_vectors))  # Store as tuple (coefficients, binary vectors)
     return permutations, off_diagonals , diagonals
 
-
 def generate_permutations(arr):
     AllPermutations = []
     All = list(itertools.permutations(arr))
@@ -280,7 +322,6 @@ def generate_cycle_diagonals(Cycle , AllPerms , AllDs):
 def generate_cyclic_permutations_with_offdiagonals(PermCycs , AllPs , AllDs):
     # Generate all permutations of the paired array
     UniquePermutations = generate_cyclic_permutations(PermCycs)
-    #UniquePermutations = filter_cyclic_equivalents(Permutations)
     UniqueDiagonals = [generate_cycle_diagonals(Cycle , AllPs , AllDs) for Cycle in UniquePermutations]
     return UniquePermutations , UniqueDiagonals
 
@@ -312,7 +353,6 @@ def add_pair_to_cycle(Cycle , CycleDs , Permutation , Ds):
     This function adds pairs of Permutation in between the permutations appearing in the cycle so that no two identical permutations are next to each other.
 
     """
-
     # We just need to add the diagonals accordingly ... !!!!!!!!
     HigherCycles = []
     HigherCycleDs = []
@@ -329,7 +369,6 @@ def add_pair_to_cycle(Cycle , CycleDs , Permutation , Ds):
                 HigherCycleDs.append(NewDs)
     
     return HigherCycles , HigherCycleDs
-
 
 def generate_higher_cycles(PermCycInds, OffDsCycInds , PermIndices , OffDsIndices):
     HighCycles = []
@@ -379,13 +418,6 @@ def get_all_cycles_from_file(filename):
   
     PermCycleIndices , OffDiagCycleIndices = convert_binary_cycles_to_indices(NullSpace , PermutationIndices , OffDiagonalsIndices , NumOfParticles)
     FundCyclesIndices , FundCycOffDiagsIndices = generate_cyclic_permutations_with_offdiagonals(PermCycleIndices , PermutationIndices , OffDiagonalsIndices)
-    
-    #print(' ')
-    #print('Inside of the original function!')
-    #print(f'Permutation indices are {PermutationIndices}')
-    #print(f'Diagonal indices are {OffDiagonalsIndices}')
-    #print(f'Nullspace is {NullSpace}')
-    #print(' ')
 
     # Generate all fundamental cycles up to length 5:
     # Take in AllCyclesIndices, AllOffDiagsIndices, PermutationIndices , OffDiagonalsIndices and output all cycles of length > 2
@@ -430,7 +462,7 @@ def Sbinary_xvec_zvec_onspins(Xvec , Zvec , Spins):
     for spin in Spins:
         BinXZ = ( Xvec[spin] + Zvec[spin] ) % 2
         Zvecfinal[spin] = BinXZ
-        phase *= ((-1)**(Xvec[spin]))*((1.0j)**(BinXZ))
+        phase *= ((1.0j)**(Xvec[spin]))
     return Xvecfinal , Zvecfinal , phase
 
 def Hbinary_xvec_zvec_onspins(Xvec , Zvec , Spins):
@@ -477,8 +509,145 @@ def apply_single_body(AllPerms, AllDiags , Spins , SingleBodyType):
 
     return AllPermsTransformed, AllDiagsTransformed
 
+def CNOT_xvec_zvec_onspins(Xvec , Zvec , CNOTPairs):
+    """
+    This functino applies CNOT on the binary x and z vectors of pauli string
+    """
+    Xvecfinal = Xvec.copy()
+    Zvecfinal = Zvec.copy()
+    for pair in CNOTPairs:
+        control = pair[0]
+        target = pair[1]
+        Xvecfinal[target] = (Xvecfinal[control] + Xvecfinal[target])%2
+        Zvecfinal[target] = (Zvecfinal[control] + Zvecfinal[target])%2
 
-def apply_random_transformation(Probabilities , AllPerms , AllDiags):
+    return Xvecfinal , Zvecfinal
+
+def apply_CNOT(AllPerms, AllDiags , CNOTPairs):
+    """
+
+    Apply CNOT rotations on specified pair of Spins.
+
+    """
+    AllPermsTransformed = []
+    AllDiagsTransformed = []
+
+    for i in range(len(AllDiags)):
+        for j in range(len(AllDiags[i][1])):
+            NewPermutation , NewDiagonal = CNOT_xvec_zvec_onspins(AllPerms[i] , AllDiags[i][1][j] , CNOTPairs)
+            PermFound , index = permutation_found(NewPermutation , AllPermsTransformed)
+            coefficient = AllDiags[i][0][j]
+            if not PermFound:
+                AllPermsTransformed.append(NewPermutation)
+                AllDiagsTransformed.append([[coefficient] , [NewDiagonal]])
+            else:
+                AllDiagsTransformed[index][0].append(coefficient)
+                AllDiagsTransformed[index][1].append(NewDiagonal)
+
+    return AllPermsTransformed, AllDiagsTransformed
+
+
+def Toff_xvec_zvec_onspins(Xvec , Zvec , ToffTruple):
+    """
+    This functino applies CNOT on the binary x and z vectors of pauli string
+    """
+    Xvecfinal = Xvec.copy()
+    Zvecfinal = Zvec.copy()
+
+    control1 = ToffTruple[0]
+    control2 = ToffTruple[1]
+    target = ToffTruple[2]
+    Xvecfinal[target] = (Xvecfinal[control1] + Xvecfinal[control2] + Xvecfinal[target])%2
+    Zvecfinal[target] = (Zvecfinal[control1] + Zvecfinal[control2] + Zvecfinal[target])%2
+
+    return Xvecfinal , Zvecfinal
+
+def apply_Toff(AllPerms, AllDiags , ToffTruple):
+    """
+
+    Apply Toffolli rotations on specified pair of Spins.
+
+    """
+    AllPermsTransformed = []
+    AllDiagsTransformed = []
+
+    for i in range(len(AllDiags)):
+        for j in range(len(AllDiags[i][1])):
+            NewPermutation , NewDiagonal = Toff_xvec_zvec_onspins(AllPerms[i] , AllDiags[i][1][j] , ToffTruple)
+            PermFound , index = permutation_found(NewPermutation , AllPermsTransformed)
+            coefficient = AllDiags[i][0][j]
+            if not PermFound:
+                AllPermsTransformed.append(NewPermutation)
+                AllDiagsTransformed.append([[coefficient] , [NewDiagonal]])
+            else:
+                AllDiagsTransformed[index][0].append(coefficient)
+                AllDiagsTransformed[index][1].append(NewDiagonal)
+
+    return AllPermsTransformed, AllDiagsTransformed
+
+import random
+
+def generate_random_spins(N):
+    """
+    Generate a random array of unique integers from 0 to N-1.
+
+    Parameters:
+        N (int): The range of integers to choose from (0 to N-1).
+
+    Returns:
+        list: A shuffled list of unique integers from 0 to N-1.
+    """
+    if N < 1:
+        raise ValueError("N must be at least 1 to generate a random array.")
+
+    array = list(range(N))
+    random.shuffle(array)
+    return array
+
+def generate_random_pairs(N):
+    """
+    Generate a random set of pairs of unique non-identical integers from 0 to N-1.
+
+    Parameters:
+        N (int): The range of integers to choose from (0 to N-1).
+
+    Returns:
+        set: A set of tuples, where each tuple contains two unique integers.
+    """
+    if N < 2:
+        raise ValueError("N must be at least 2 to generate unique pairs.")
+
+    # Calculate the maximum possible number of unique pairs
+    max_pairs = N * (N - 1) // 2
+
+    # Choose a random multiple of 2 that does not exceed max_pairs
+    num_pairs = random.randint(1, max_pairs // 2) * 2
+
+    pairs = set()
+
+    while len(pairs) < num_pairs:
+        pair = tuple(sorted(random.sample(range(N), 2)))
+        pairs.add(pair)
+
+    return pairs
+
+
+def generate_random_triple(N):
+    """
+    Generate a random set of triples of non-identical integers from 0 to N-1.
+
+    Parameters:
+        N (int): The range of integers to choose from (0 to N-1).
+
+    Returns:
+        set: A set of tuples, where each tuple contains three unique integers.
+    """
+    if N < 3:
+        raise ValueError("N must be at least 3 to generate unique triples.")
+
+    return random.sample(range(N), 3)
+
+def apply_random_transformation(Probabilities , AllPerms , AllDiags , NumOfParticles):
     """
     The input 'Probabilities' specifies the probability of single, two, or three body rotations
     """
@@ -487,22 +656,111 @@ def apply_random_transformation(Probabilities , AllPerms , AllDiags):
     if p < ProbOneBody:
         # Apply single body rotation
         p1 = random.random()
+        Spins = generate_random_spins(NumOfParticles)
         if p1 <= 0.5:
             # Apply hadamard at a randomly picked spin
             RotationType = 'H'
-            Spins = [0]
+            print(f'Hadamard gates on spins {Spins} applied!')
+            print(' ')
         else:
             # Apply S gate at a randomly picked spin
             RotationType = 'S'
-            Spins = [0]
+            print(f'S-gates on spins {Spins} applied!')
+            print(' ')
         AllPermsT , AllDiagsT = apply_single_body(AllPerms, AllDiags , Spins , RotationType)
     elif p < ProbOneBody + ProbTwoBody:
         # Apply two body rotation (CNOT)
         # randomly pick a tuple (i , j) and apply CNOT with control on i spin , and target at j spin...
-        AllPermsT , AllDiagsT = apply_CNOT(AllPerms, AllDiags , [ControlSpin , TargetSpin])
+        
+        CNOTPairs = generate_random_pairs(NumOfParticles)
+        print(f'CNOT gate applied on the CNOT pairs {CNOTPairs}') # The first term of the pair is the control spin and the second is the target!
+        AllPermsT , AllDiagsT = apply_CNOT(AllPerms, AllDiags , CNOTPairs)
     else: 
         # Apply two body rotation (CCNOT)
         # randomly pick a tuple (i , j , k) and apply CCNOT with control on i and j spin , and target at k spin...
-        AllPermsT , AllDiagsT = apply_CCNOT(AllPerms, AllDiags , [ControlSpin1 , ControlSpin2 , TargetSpin])
+        ToffTriple = generate_random_triple(NumOfParticles)
+        print(f'CNOT gate applied on the Toffoli triples {ToffTriple}') # The first term two spins are the control spin and the third is the target!
+        AllPermsT , AllDiagsT = apply_Toff(AllPerms, AllDiags , ToffTriple)
 
-# ===================================== TESTING ================================================
+    return AllPermsT , AllDiagsT
+
+# ======================== Writing the output files from the permutation data ==============================
+import numpy as np
+
+def generate_pauli_file_from_pmr_data(output_filename, permutations, off_diagonals, diagonals):
+    """
+    Generates a text file from the given permutations and diagonal terms, handling complex coefficients.
+
+    Parameters:
+        output_filename (str): The name of the output file.
+        permutations (list): List of binary vectors representing Pauli-X action.
+        off_diagonals (list): List of tuples (list of coefficients, list of binary Z-action vectors).
+        diagonals (list): List of tuples (list of coefficients, list of binary Z-action vectors).
+
+    """
+    def get_pauli_action(x_val, z_val):
+        """
+        Determines the Pauli action based on X and Z values.
+
+        Parameters:
+            x_val (int): Value in the X part of the binary vector.
+            z_val (int): Value in the Z part of the binary vector.
+
+        Returns:
+            str: Pauli action ('X', 'Y', or 'Z').
+        """
+        if x_val == 1 and z_val == 0:
+            return 'X'
+        elif x_val == 1 and z_val == 1:
+            return 'Y'
+        elif x_val == 0 and z_val == 1:
+            return 'Z'
+        else:
+            return None  # No Pauli action (identity)
+
+    def format_line(coefficient, binary_vector):
+        """
+        Formats a line for the output file.
+
+        Parameters:
+            coefficient (complex): Coefficient of the Pauli term.
+            binary_vector (list): Combined binary vector (X and Z actions).
+
+        Returns:
+            str: Formatted line for the output file.
+        """
+        N = len(binary_vector) // 2
+        x_part = binary_vector[:N]
+        z_part = binary_vector[N:]
+
+        adjusted_coefficient = coefficient
+        line = []
+
+        for i, (x, z) in enumerate(zip(x_part, z_part)):
+            pauli_action = get_pauli_action(x, z)
+            if pauli_action:
+                if pauli_action == 'Y':
+                    adjusted_coefficient *= 1.0j
+                #line.extend([f"{i + 1}", pauli_action, "1", "2"])
+                line.extend([f"{i + 1}", pauli_action])
+        
+        # Format the coefficient with both real and imaginary parts
+        coeff_str = f"{adjusted_coefficient.real:.6f}" + (f"{adjusted_coefficient.imag:+.6f}j" if adjusted_coefficient.imag != 0 else "")
+        return f"{coeff_str} " + " ".join(line)
+
+    with open(output_filename, 'w') as file:
+        # Process off-diagonal terms
+        for perm, (coeff_list, z_vectors) in zip(permutations, off_diagonals):
+            for coeff, z_vec in zip(coeff_list, z_vectors):
+                combined_vector = np.concatenate((perm, z_vec))
+                line = format_line(coeff, combined_vector)
+                file.write(line + '\n')
+
+        # Process diagonal terms
+        #for (coeff_list, z_vectors) in diagonals:
+        (coeff_list , z_vectors) = diagonals
+        for coeff , z_vec in zip(coeff_list, z_vectors):
+            combined_vector = np.zeros(len(z_vec) * 2 , dtype=int)
+            combined_vector[len(z_vec):] = z_vec  # Only Z actions for diagonals
+            line = format_line(coeff, combined_vector)
+            file.write(line + '\n')
