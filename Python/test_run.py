@@ -49,7 +49,7 @@ def total_cost_from_binary_operators(AllPermsBinary , AllDiagsBinary):
 filename = sys.argv[1]
 Coefficients, BinaryVectors , NumOfParticles = parse_pauli_file(filename)
 AllPermsBinary , AllDiagsBinary , PureDiagonals = process_pauli_terms(Coefficients , BinaryVectors , NumOfParticles)
-if len(PureDiagonals)>0:
+if len(PureDiagonals) > 0:
     AllPermsBinary.append([0]*NumOfParticles)
     AllDiagsBinary.append(PureDiagonals[0])
 
@@ -68,14 +68,20 @@ print(' ')
 
 Probabilities = [0.5 , 0.25 , 0.25]
 TotalCost = InitialTotalCost
-while TotalCost > InitialTotalCost/5.0:
-    AllPermsBinary , AllDiagsBinary = apply_random_transformation(Probabilities , AllPermsBinary , AllDiagsBinary , NumOfParticles)
-    TotalCost , CostsQ , CyclesQ = total_cost_from_binary_operators(AllPermsBinary , AllDiagsBinary)
+while TotalCost > InitialTotalCost/5.0 and TotalCost > 5.0:
+    AllPermsBinaryNew , AllDiagsBinaryNew = apply_random_transformation(Probabilities , AllPermsBinary , AllDiagsBinary , NumOfParticles)
+    TotalCost , CostsQ , CyclesQ = total_cost_from_binary_operators(AllPermsBinaryNew , AllDiagsBinaryNew)
     print('After transformation ... ')
     #print(f'The Cycles for each q is {CyclesQ}')
     print(f'The cost for each q is {CostsQ}')
     print(f'The total cost of the Hamiltonian is {TotalCost}')
     print(' ')
+    if TotalCost < InitialTotalCost:
+        AllPermsBinary = AllPermsBinaryNew
+        AllDiagsBinary = AllDiagsBinaryNew
+        print('The transformation is accepted!')
+        print(' ')
+        print(' ')
 
 # Apply a speicific transformation:
 #   Apparently an all S tranformation cures the sign problem?!

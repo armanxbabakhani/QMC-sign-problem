@@ -519,15 +519,13 @@ def CNOT_xvec_zvec_onspins(Xvec , Zvec , CNOTPairs):
         control = pair[0]
         target = pair[1]
         Xvecfinal[target] = (Xvecfinal[control] + Xvecfinal[target])%2
-        Zvecfinal[target] = (Zvecfinal[control] + Zvecfinal[target])%2
+        Zvecfinal[control] = (Zvecfinal[control] + Zvecfinal[target])%2
 
     return Xvecfinal , Zvecfinal
 
 def apply_CNOT(AllPerms, AllDiags , CNOTPairs):
     """
-
     Apply CNOT rotations on specified pair of Spins.
-
     """
     AllPermsTransformed = []
     AllDiagsTransformed = []
@@ -543,7 +541,6 @@ def apply_CNOT(AllPerms, AllDiags , CNOTPairs):
             else:
                 AllDiagsTransformed[index][0].append(coefficient)
                 AllDiagsTransformed[index][1].append(NewDiagonal)
-
     return AllPermsTransformed, AllDiagsTransformed
 
 
@@ -564,9 +561,7 @@ def Toff_xvec_zvec_onspins(Xvec , Zvec , ToffTruple):
 
 def apply_Toff(AllPerms, AllDiags , ToffTruple):
     """
-
     Apply Toffolli rotations on specified pair of Spins.
-
     """
     AllPermsTransformed = []
     AllDiagsTransformed = []
@@ -582,10 +577,7 @@ def apply_Toff(AllPerms, AllDiags , ToffTruple):
             else:
                 AllDiagsTransformed[index][0].append(coefficient)
                 AllDiagsTransformed[index][1].append(NewDiagonal)
-
     return AllPermsTransformed, AllDiagsTransformed
-
-import random
 
 def generate_random_spins(N):
     """
@@ -740,7 +732,7 @@ def generate_pauli_file_from_pmr_data(output_filename, permutations, off_diagona
             pauli_action = get_pauli_action(x, z)
             if pauli_action:
                 if pauli_action == 'Y':
-                    adjusted_coefficient *= 1.0j
+                    adjusted_coefficient *= -1.0j
                 #line.extend([f"{i + 1}", pauli_action, "1", "2"])
                 line.extend([f"{i + 1}", pauli_action])
         
