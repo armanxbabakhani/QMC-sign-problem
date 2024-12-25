@@ -66,22 +66,26 @@ print(f'The cost for each q is {CostsQ}')
 print(f'The total cost of the Hamiltonian is {InitialTotalCost}')
 print(' ')
 
-Probabilities = [0.5 , 0.25 , 0.25]
+Probabilities = [0.5 , 0.5 , 0.0]
 TotalCost = InitialTotalCost
-while TotalCost > InitialTotalCost/5.0 and TotalCost > 5.0:
-    AllPermsBinaryNew , AllDiagsBinaryNew = apply_random_transformation(Probabilities , AllPermsBinary , AllDiagsBinary , NumOfParticles)
-    TotalCost , CostsQ , CyclesQ = total_cost_from_binary_operators(AllPermsBinaryNew , AllDiagsBinaryNew)
+
+MaxIterations = 5000
+Iteration = 0
+while TotalCost > InitialTotalCost/5.0 and TotalCost > 5.0 and Iteration < MaxIterations:
+    AllPermsBinary , AllDiagsBinary = apply_random_transformation(Probabilities , AllPermsBinary , AllDiagsBinary , NumOfParticles)
+    TotalCost , CostsQ , CyclesQ = total_cost_from_binary_operators(AllPermsBinary , AllDiagsBinary)
     print('After transformation ... ')
     #print(f'The Cycles for each q is {CyclesQ}')
     print(f'The cost for each q is {CostsQ}')
     print(f'The total cost of the Hamiltonian is {TotalCost}')
     print(' ')
-    if TotalCost < InitialTotalCost:
-        AllPermsBinary = AllPermsBinaryNew
-        AllDiagsBinary = AllDiagsBinaryNew
-        print('The transformation is accepted!')
-        print(' ')
-        print(' ')
+    Iteration += 1
+    # if TotalCost < InitialTotalCost:
+    #     AllPermsBinary = AllPermsBinaryNew
+    #     AllDiagsBinary = AllDiagsBinaryNew
+    #     print('The transformation is accepted!')
+    #     print(' ')
+    #     print(' ')
 
 # Apply a speicific transformation:
 #   Apparently an all S tranformation cures the sign problem?!

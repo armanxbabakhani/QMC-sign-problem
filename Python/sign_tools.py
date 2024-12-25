@@ -544,6 +544,7 @@ def apply_CNOT(AllPerms, AllDiags , CNOTPairs):
     return AllPermsTransformed, AllDiagsTransformed
 
 
+# This function needs to be updated! 
 def Toff_xvec_zvec_onspins(Xvec , Zvec , ToffTruple):
     """
     This functino applies CNOT on the binary x and z vectors of pauli string
