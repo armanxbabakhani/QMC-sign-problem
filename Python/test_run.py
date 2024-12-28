@@ -55,41 +55,72 @@ if len(PureDiagonals) > 0:
 
 InitialTotalCost , CostsQ , CyclesQ = total_cost_from_binary_operators(AllPermsBinary , AllDiagsBinary)
 CyclesOriginal , N = get_all_cycles_from_file(filename)
-#print(f'The original cycles for q=4 is {CyclesOriginal[4]['Permutation Cycles']}')
-#print(f'The diagonal cycles of the original cycle for q=4 is {CyclesOriginal[4]['Diagonal Cycles']}')
-#print(f'The perm cycles for new q=4 is {CyclesQ[4]['Permutation Cycles']}')
-#print(f'The diagonal cycles of the new cycle for q=4 is {CyclesQ[4]['Diagonal Cycles']}')
-#print(f'The cost for q=4 of the new cycles {total_hamiltonian_cost(CyclesQ[4]['Diagonal Cycles'] , CyclesQ[4]['Permutation Cycles'] , N)}')
-#print(f'The cost for q=4 of the original cycles are {total_hamiltonian_cost(CyclesOriginal[4]['Diagonal Cycles'] , CyclesOriginal[4]['Permutation Cycles'] , N)}')
-#print(f'The Cycles for each q=4 is {CyclesQ[4]['Permutation Cycles']}')
 print(f'The cost for each q is {CostsQ}')
 print(f'The total cost of the Hamiltonian is {InitialTotalCost}')
 print(' ')
 
 Probabilities = [0.5 , 0.5 , 0.0]
 TotalCost = InitialTotalCost
+BestCost = InitialTotalCost
+AbsoluteBest = BestCost
+AbsoluteBestFound = False
+AllTransformations = []
+BestTransformations = []
 
 MaxIterations = 5000
 Iteration = 0
-while TotalCost > InitialTotalCost/5.0 and TotalCost > 5.0 and Iteration < MaxIterations:
-    AllPermsBinary , AllDiagsBinary = apply_random_transformation(Probabilities , AllPermsBinary , AllDiagsBinary , NumOfParticles)
-    TotalCost , CostsQ , CyclesQ = total_cost_from_binary_operators(AllPermsBinary , AllDiagsBinary)
-    print('After transformation ... ')
-    #print(f'The Cycles for each q is {CyclesQ}')
-    print(f'The cost for each q is {CostsQ}')
-    print(f'The total cost of the Hamiltonian is {TotalCost}')
+
+# Simulated annealing:
+while TotalCost > 0.0 and Iteration < MaxIterations:
+    AllPermsBinaryNew , AllDiagsBinaryNew , Transformation = apply_random_transformation(Probabilities , AllPermsBinary , AllDiagsBinary , NumOfParticles)
+    TotalCost , CostsQ , CyclesQ = total_cost_from_binary_operators(AllPermsBinaryNew , AllDiagsBinaryNew)
+
+    DeltaCost = TotalCost - BestCost
+    TransitionProb = np.min([np.exp(-1.0*DeltaCost*(Iteration/10 + InitialTotalCost/10.0)) , 1])
+    print(f'The new cost is {TotalCost}')
+    print(f'The transition probability is {TransitionProb}')
     print(' ')
+    p = random.random()
     Iteration += 1
-    # if TotalCost < InitialTotalCost:
-    #     AllPermsBinary = AllPermsBinaryNew
-    #     AllDiagsBinary = AllDiagsBinaryNew
-    #     print('The transformation is accepted!')
-    #     print(' ')
-    #     print(' ')
+    if TotalCost < AbsoluteBest:
+        AbsoluteBest = TotalCost
+        AbsoluteBestAllPermsBinary = AllPermsBinaryNew
+        AbsoluteBestAllDiagsBinary = AllDiagsBinaryNew
+        BestTransformations.append(Transformation)
+        AbsoluteBestFound = True
+    if p < TransitionProb:
+        AllPermsBinary = AllPermsBinaryNew
+        AllDiagsBinary = AllDiagsBinaryNew
+        BestCost = TotalCost
+        AllTransformations.append(Transformation)
+        print('The transformation has been accepted!')
+        print(' ')
+        print(' ')
+
+
+# while TotalCost > InitialTotalCost/5.0 and TotalCost > 5.0 and Iteration < MaxIterations:
+#     AllPermsBinaryNew , AllDiagsBinaryNew = apply_random_transformation(Probabilities , AllPermsBinary , AllDiagsBinary , NumOfParticles)
+#     TotalCost , CostsQ , CyclesQ = total_cost_from_binary_operators(AllPermsBinaryNew , AllDiagsBinaryNew)
+#     print(' ')
+#     print('After transformation ... ')
+#     #print(f'The Cycles for each q is {CyclesQ}')
+#     print(f'The cost for each q is {CostsQ}')
+#     print(f'The total cost of the Hamiltonian is {TotalCost}')
+#     print(f'Iteration number: {Iteration}')
+#     print(' ')
+#     Iteration += 1
+#     if TotalCost < InitialTotalCost:
+#         AllPermsBinary = AllPermsBinaryNew
+#         AllDiagsBinary = AllDiagsBinaryNew
+#         print('The transformation is accepted!')
+#         print(' ')
+#         print(' ')
 
 # Apply a speicific transformation:
 #   Apparently an all S tranformation cures the sign problem?!
-
+if AbsoluteBestFound:
+    AllPermsBinary = AbsoluteBestAllPermsBinary
+    AllDiagsBinary = AbsoluteBestAllDiagsBinary
 # Get the pure diagonal term:
 for i in range(len(AllPermsBinary)):
     if AllPermsBinary[i] == [0]*NumOfParticles:
@@ -102,10 +133,13 @@ AllDiagsBinary = AllDiagsBinary[:IdentityIndex]+AllDiagsBinary[IdentityIndex+1:]
 print(f'The permutations are {AllPermsBinary}')
 print(f'The diagonals are {AllDiagsBinary}')
 print(f'The purely diagonals are {PureDiagonals}')
-
+print(' ')
+print(' ')
 # Writing back into an ouptut file:
+print(f'The best cost is {BestCost}')
+print(f'Best Transformations are {BestTransformations}')
 
-generate_pauli_file_from_pmr_data(filename.removesuffix(".txt")+'_sign_optimized.txt', AllPermsBinary , AllDiagsBinary , PureDiagonals)
+generate_pauli_file_from_pmr_data(filename.removesuffix(".txt")+'_optimized.txt', AllPermsBinary , AllDiagsBinary , PureDiagonals)
 
 #AllCycles , NumberOfParticles = get_all_cycles_from_file(filename)
 

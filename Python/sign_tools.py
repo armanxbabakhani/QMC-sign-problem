@@ -649,24 +649,23 @@ def apply_random_transformation(Probabilities , AllPerms , AllDiags , NumOfParti
     if p < ProbOneBody:
         # Apply single body rotation
         p1 = random.random()
-        Spins = generate_random_spins(NumOfParticles)
+        NumOfTrans = random.randint(1 , NumOfParticles)
+        Spins = generate_random_spins(NumOfTrans)
         if p1 <= 0.5:
             # Apply hadamard at a randomly picked spin
             RotationType = 'H'
-            print(f'Hadamard gates on spins {Spins} applied!')
-            print(' ')
+            transformation = 'Hadamard gates on spins ' + str(Spins) + ' applied'
         else:
             # Apply S gate at a randomly picked spin
             RotationType = 'S'
-            print(f'S-gates on spins {Spins} applied!')
-            print(' ')
+            transformation = 'S-gates on spins ' +  str(Spins) + ' applied'
         AllPermsT , AllDiagsT = apply_single_body(AllPerms, AllDiags , Spins , RotationType)
     elif p < ProbOneBody + ProbTwoBody:
         # Apply two body rotation (CNOT)
         # randomly pick a tuple (i , j) and apply CNOT with control on i spin , and target at j spin...
         
         CNOTPairs = generate_random_pairs(NumOfParticles)
-        print(f'CNOT gate applied on the CNOT pairs {CNOTPairs}') # The first term of the pair is the control spin and the second is the target!
+        transformation = 'CNOT on the pairs ' + str(CNOTPairs) + ' applied' # The first term of the pair is the control spin and the second is the target!
         AllPermsT , AllDiagsT = apply_CNOT(AllPerms, AllDiags , CNOTPairs)
     else: 
         # Apply two body rotation (CCNOT)
@@ -675,7 +674,7 @@ def apply_random_transformation(Probabilities , AllPerms , AllDiags , NumOfParti
         print(f'CNOT gate applied on the Toffoli triples {ToffTriple}') # The first term two spins are the control spin and the third is the target!
         AllPermsT , AllDiagsT = apply_Toff(AllPerms, AllDiags , ToffTriple)
 
-    return AllPermsT , AllDiagsT
+    return AllPermsT , AllDiagsT , transformation
 
 # ======================== Writing the output files from the permutation data ==============================
 import numpy as np
