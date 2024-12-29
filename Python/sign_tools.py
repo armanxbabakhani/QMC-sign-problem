@@ -607,19 +607,26 @@ def generate_random_pairs(N):
     Returns:
         set: A set of tuples, where each tuple contains two unique integers.
     """
+
+    pairs = set()
+
     if N < 2:
         raise ValueError("N must be at least 2 to generate unique pairs.")
-
+    elif N == 2:
+        p = random.random()
+        if p < 0.5:
+            pairs.add(tuple([0,1]))
+        else:
+            pairs.add(tuple([1,0]))
+        return pairs
     # Calculate the maximum possible number of unique pairs
     max_pairs = N * (N - 1) // 2
 
     # Choose a random multiple of 2 that does not exceed max_pairs
     num_pairs = random.randint(1, max_pairs // 2) * 2
 
-    pairs = set()
-
     while len(pairs) < num_pairs:
-        pair = tuple(sorted(random.sample(range(N), 2)))
+        pair = tuple(random.sample(range(N), 2))
         pairs.add(pair)
 
     return pairs
@@ -750,9 +757,10 @@ def generate_pauli_file_from_pmr_data(output_filename, permutations, off_diagona
 
         # Process diagonal terms
         #for (coeff_list, z_vectors) in diagonals:
-        (coeff_list , z_vectors) = diagonals
-        for coeff , z_vec in zip(coeff_list, z_vectors):
-            combined_vector = np.zeros(len(z_vec) * 2 , dtype=int)
-            combined_vector[len(z_vec):] = z_vec  # Only Z actions for diagonals
-            line = format_line(coeff, combined_vector)
-            file.write(line + '\n')
+        if len(diagonals) > 0:
+            (coeff_list , z_vectors) = diagonals
+            for coeff , z_vec in zip(coeff_list, z_vectors):
+                combined_vector = np.zeros(len(z_vec) * 2 , dtype=int)
+                combined_vector[len(z_vec):] = z_vec  # Only Z actions for diagonals
+                line = format_line(coeff, combined_vector)
+                file.write(line + '\n')
