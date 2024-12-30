@@ -545,40 +545,40 @@ def apply_CNOT(AllPerms, AllDiags , CNOTPairs):
 
 
 # This function needs to be updated! 
-def Toff_xvec_zvec_onspins(Xvec , Zvec , ToffTruple):
-    """
-    This functino applies CNOT on the binary x and z vectors of pauli string
-    """
-    Xvecfinal = Xvec.copy()
-    Zvecfinal = Zvec.copy()
+# def Toff_xvec_zvec_onspins(Xvec , Zvec , ToffTruple):
+#     """
+#     This functino applies CNOT on the binary x and z vectors of pauli string
+#     """
+#     Xvecfinal = Xvec.copy()
+#     Zvecfinal = Zvec.copy()
 
-    control1 = ToffTruple[0]
-    control2 = ToffTruple[1]
-    target = ToffTruple[2]
-    Xvecfinal[target] = (Xvecfinal[control1] + Xvecfinal[control2] + Xvecfinal[target])%2
-    Zvecfinal[target] = (Zvecfinal[control1] + Zvecfinal[control2] + Zvecfinal[target])%2
+#     control1 = ToffTruple[0]
+#     control2 = ToffTruple[1]
+#     target = ToffTruple[2]
+#     Xvecfinal[target] = (Xvecfinal[control1]*Xvecfinal[control2] + Xvecfinal[target])%2
+#     Zvecfinal[control1] = (Zvecfinal[control1] + Zvecfinal[control2]*Zvecfinal[target])%2
 
-    return Xvecfinal , Zvecfinal
+#     return Xvecfinal , Zvecfinal
 
-def apply_Toff(AllPerms, AllDiags , ToffTruple):
-    """
-    Apply Toffolli rotations on specified pair of Spins.
-    """
-    AllPermsTransformed = []
-    AllDiagsTransformed = []
+# def apply_Toff(AllPerms, AllDiags , ToffTruple):
+#     """
+#     Apply Toffolli rotations on specified pair of Spins.
+#     """
+#     AllPermsTransformed = []
+#     AllDiagsTransformed = []
 
-    for i in range(len(AllDiags)):
-        for j in range(len(AllDiags[i][1])):
-            NewPermutation , NewDiagonal = Toff_xvec_zvec_onspins(AllPerms[i] , AllDiags[i][1][j] , ToffTruple)
-            PermFound , index = permutation_found(NewPermutation , AllPermsTransformed)
-            coefficient = AllDiags[i][0][j]
-            if not PermFound:
-                AllPermsTransformed.append(NewPermutation)
-                AllDiagsTransformed.append([[coefficient] , [NewDiagonal]])
-            else:
-                AllDiagsTransformed[index][0].append(coefficient)
-                AllDiagsTransformed[index][1].append(NewDiagonal)
-    return AllPermsTransformed, AllDiagsTransformed
+#     for i in range(len(AllDiags)):
+#         for j in range(len(AllDiags[i][1])):
+#             NewPermutation , NewDiagonal = Toff_xvec_zvec_onspins(AllPerms[i] , AllDiags[i][1][j] , ToffTruple)
+#             PermFound , index = permutation_found(NewPermutation , AllPermsTransformed)
+#             coefficient = AllDiags[i][0][j]
+#             if not PermFound:
+#                 AllPermsTransformed.append(NewPermutation)
+#                 AllDiagsTransformed.append([[coefficient] , [NewDiagonal]])
+#             else:
+#                 AllDiagsTransformed[index][0].append(coefficient)
+#                 AllDiagsTransformed[index][1].append(NewDiagonal)
+#     return AllPermsTransformed, AllDiagsTransformed
 
 def generate_random_spins(N):
     """
@@ -674,12 +674,12 @@ def apply_random_transformation(Probabilities , AllPerms , AllDiags , NumOfParti
         CNOTPairs = generate_random_pairs(NumOfParticles)
         transformation = 'CNOT on the pairs ' + str(CNOTPairs) + ' applied' # The first term of the pair is the control spin and the second is the target!
         AllPermsT , AllDiagsT = apply_CNOT(AllPerms, AllDiags , CNOTPairs)
-    else: 
-        # Apply two body rotation (CCNOT)
-        # randomly pick a tuple (i , j , k) and apply CCNOT with control on i and j spin , and target at k spin...
-        ToffTriple = generate_random_triple(NumOfParticles)
-        print(f'CNOT gate applied on the Toffoli triples {ToffTriple}') # The first term two spins are the control spin and the third is the target!
-        AllPermsT , AllDiagsT = apply_Toff(AllPerms, AllDiags , ToffTriple)
+    # else: 
+    #     # Apply two body rotation (CCNOT)
+    #     # randomly pick a tuple (i , j , k) and apply CCNOT with control on i and j spin , and target at k spin...
+    #     ToffTriple = generate_random_triple(NumOfParticles)
+    #     transformation = 'Toffoli gate on the triples '+ str(ToffTriple) +' applied' # The first term two spins are the control spin and the third is the target!
+    #     AllPermsT , AllDiagsT = apply_Toff(AllPerms, AllDiags , ToffTriple)
 
     return AllPermsT , AllDiagsT , transformation
 

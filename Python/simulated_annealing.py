@@ -69,7 +69,7 @@ print(' ')
 
 
 # ---------------------- Simulation criteria -----------------------------
-Probabilities = [0.5 , 0.5 , 0.0]
+Probabilities = [0.5 , 0.25 , 0.25]
 TotalCost = InitialTotalCost
 BestCost = InitialTotalCost
 AbsoluteBest = BestCost
