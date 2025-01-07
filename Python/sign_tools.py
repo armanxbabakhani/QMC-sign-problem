@@ -127,8 +127,12 @@ def single_cycle_weight(InitialState , CycleDiags , CyclePerms):
         diag_j = 0.0
         for j in range(len(CycleDiags[i][0])):
             diag_j += CycleDiags[i][0][j]*evaluate_diagonal(state , CycleDiags[i][1][j])
-        weight *= diag_j
-        permute_state(state , CyclePerms[i])
+        
+        if abs(diag_j) < 1E-7:
+            return 0.0
+        else:
+            weight *= diag_j
+            permute_state(state , CyclePerms[i])
     return weight
 
 
@@ -316,7 +320,6 @@ def generate_cycle_diagonals(Cycle , AllPerms , AllDs):
     for Perm in Cycle:
         PermIndex = find_perm_index(Perm , AllPerms)
         CycleDs.append(AllDs[PermIndex])
-    
     return CycleDs
 
 def generate_cyclic_permutations_with_offdiagonals(PermCycs , AllPs , AllDs):
@@ -342,6 +345,15 @@ def total_cost_of_cycle(CycleDiags , CyclePerm , TotalParticles):
         #if r > 1E-6:
         #    print(f'The state is {State} and the permutation cycle is {CyclePerm}')
         #    print(f'The r is {r} and theta is {theta}')
+        cost += r*(1.0-np.cos(theta))
+    return cost
+
+def compute_state_totalcost(State , AllCycPerms , AllCycDiags):
+    cost = 0.0
+    for CycPs , CycDs in zip(AllCycPerms , AllCycDiags):
+        SignFactor = (-1.0)**len(CycDs)
+        weight = single_cycle_weight(State , CycDs , CycPs)*SignFactor
+        r , theta = cmath.polar(weight)
         cost += r*(1.0-np.cos(theta))
     return cost
 
@@ -437,10 +449,111 @@ def get_all_cycles_from_file(filename):
 
 
 def total_hamiltonian_cost(AllCycleDiags , AllCyclePerms , NumOfParticles):
-    cost = 0.0
-    for i in range(len(AllCyclePerms)):
-        cost += total_cost_of_cycle(AllCycleDiags[i] , AllCyclePerms[i] , NumOfParticles)
-    return cost
+    Nthresh = 4
+    N = NumOfParticles
+    FinalCost = 0.0
+    VisitedNums = []
+    if N >= Nthresh:
+        # Compute the cost using Monte Carlo!
+        TotalSampledStates = 2**(Nthresh-1)
+        AverageCost = 0.0
+        NumRepeats = 20
+        r = 1
+        while r < NumRepeats:
+            TotalCost = 0.0
+            SampledStates = []
+            SampledCosts = []
+            CurrentNum = random.randint(0 , 2**N)
+            CurrentState = int_to_binary_array(CurrentNum , N)
+            CurrentCost = compute_state_totalcost(CurrentState , AllCyclePerms , AllCycleDiags)
+            SampledStates.append(CurrentState)
+            SampledCosts.append(CurrentCost)
+            VisitedNums.append(CurrentNum)
+            # print(f'The sampled state is {CurrentState}')
+            # print(f'The sampled cost is {CurrentCost}')
+            # print(' ')
+            while len(VisitedNums) < TotalSampledStates:
+                SampleNum = random.randint(0 , 2**N)
+                SampleState = int_to_binary_array(SampleNum , N)
+                SampleCost = compute_state_totalcost(SampleState , AllCyclePerms , AllCycleDiags)
+                print(f'Sampled Num is {SampleNum}')
+                print(f'The Sampled State is {SampleState}')
+                print(f'The Sampled cost is {SampleCost}')
+                print(f'The Current State is {CurrentState}')
+                print(f'The Current cost is {CurrentCost}')
+                if abs(CurrentCost) < 1E-7:
+                    MetropolisP = 1.0
+                else:
+                    MetropolisP = np.min([1.0 , SampleCost/CurrentCost])
+                p = random.random()
+                print(f'p is {p} , and the MatropolisP is {MetropolisP}')
+                print(' ')
+                if p < MetropolisP:
+                    # print(f'The state is accepted!')
+                    # print(' ')
+                    CurrentState = SampleState
+                    CurrentCost = SampleCost
+                    SampledStates.append(SampleState)
+                    SampledCosts.append(SampleCost)
+                    VisitedNums.append(SampleNum)
+                    TotalCost += SampleCost
+            AverageCost = (AverageCost*(r-1) + TotalCost)/r
+            r += 1
+        FinalCost = AverageCost
+    else:
+        # Computing the cost function exactly
+        for i in range(len(AllCyclePerms)):
+            FinalCost += total_cost_of_cycle(AllCycleDiags[i] , AllCyclePerms[i] , NumOfParticles)
+    
+    return FinalCost
+
+
+def total_cost_from_binary_operators(AllPermsBinary , AllDiagsBinary):
+    NumOfParticles = len(AllPermsBinary[0])    
+
+    # Remove the identity if it is in AllPermsBinary
+    AllPermsBinaryWOIden = AllPermsBinary.copy()
+    AllDiagsBinaryWOIden = AllDiagsBinary.copy()
+
+    AllPermsBinaryWOIden = [AllPermsBinaryWOIden[i] for i in range(len(AllPermsBinary)) if not AllPermsBinaryWOIden[i]==[0]*NumOfParticles ]
+    if len(AllPermsBinaryWOIden) < len(AllPermsBinary):
+        AllDiagsBinaryWOIden = AllDiagsBinaryWOIden[:len(AllDiagsBinaryWOIden)-1]
+
+    # Convert binary permutations into vector of int indices
+    PermutationIndices = []
+    for permutation in AllPermsBinaryWOIden:
+        PermutationIndices.append(binary_to_indices(permutation))
+    OffDiagonalsIndices = convert_diagonal_to_indices(AllDiagsBinaryWOIden)
+    NullSpace = mod2_nullspace(AllPermsBinaryWOIden)
+
+    # Generating all cycles of up to length 5:
+    PermCycleIndices , OffDiagCycleIndices = convert_binary_cycles_to_indices(NullSpace , PermutationIndices , OffDiagonalsIndices , NumOfParticles)
+
+    FundCyclesIndices , FundCycOffDiagsIndices = generate_cyclic_permutations_with_offdiagonals(PermCycleIndices , PermutationIndices , OffDiagonalsIndices)
+    
+    HighCycles , HighOffDiags = generate_higher_cycles(FundCyclesIndices , FundCycOffDiagsIndices , PermutationIndices , OffDiagonalsIndices)
+
+    AllCycles = FundCyclesIndices + HighCycles
+    AllCycOffDs = FundCycOffDiagsIndices + HighOffDiags
+    
+    CyclesQ = {}
+    for i in range(len(AllCycles)):
+        q = len(AllCycles[i])
+        if q not in CyclesQ :
+            CyclesQ[q] = {'Permutation Cycles':[] , 'Diagonal Cycles': []}
+        CyclesQ[q]['Permutation Cycles'].append(AllCycles[i])
+        CyclesQ[q]['Diagonal Cycles'].append(AllCycOffDs[i])
+
+    CostsQ = {}
+    TotalCost = 0.0
+    for q in np.arange(3,6):
+        QcycPerms = CyclesQ.get(q , {}).get('Permutation Cycles' , None)
+        if QcycPerms is not None:
+            Cost = total_hamiltonian_cost(CyclesQ[q]['Diagonal Cycles'] , CyclesQ[q]['Permutation Cycles'] , NumOfParticles)
+            TotalCost += Cost
+            CostsQ[q] = Cost
+
+    return TotalCost , CostsQ , CyclesQ
 
 # ========================= Clifford rotation functions ====================================
 
@@ -674,17 +787,11 @@ def apply_random_transformation(Probabilities , AllPerms , AllDiags , NumOfParti
         CNOTPairs = generate_random_pairs(NumOfParticles)
         transformation = 'CNOT on the pairs ' + str(CNOTPairs) + ' applied' # The first term of the pair is the control spin and the second is the target!
         AllPermsT , AllDiagsT = apply_CNOT(AllPerms, AllDiags , CNOTPairs)
-    # else: 
-    #     # Apply two body rotation (CCNOT)
-    #     # randomly pick a tuple (i , j , k) and apply CCNOT with control on i and j spin , and target at k spin...
-    #     ToffTriple = generate_random_triple(NumOfParticles)
-    #     transformation = 'Toffoli gate on the triples '+ str(ToffTriple) +' applied' # The first term two spins are the control spin and the third is the target!
-    #     AllPermsT , AllDiagsT = apply_Toff(AllPerms, AllDiags , ToffTriple)
 
     return AllPermsT , AllDiagsT , transformation
 
+
 # ======================== Writing the output files from the permutation data ==============================
-import numpy as np
 
 def generate_pauli_file_from_pmr_data(output_filename, permutations, off_diagonals, diagonals):
     """
@@ -764,3 +871,69 @@ def generate_pauli_file_from_pmr_data(output_filename, permutations, off_diagona
                 combined_vector[len(z_vec):] = z_vec  # Only Z actions for diagonals
                 line = format_line(coeff, combined_vector)
                 file.write(line + '\n')
+
+
+# ============================= Estimating the cost function ==============================
+
+# ************** Main idea for the initialization:
+# Compute min(Ninit , 2^N) number of random costs!
+# Pick the highest of these and then start probabilistic local search from there
+
+
+# Starting with an initial state and its weight:
+# InitialCosts = []
+# N = NumOfParticles
+# Nint = np.min([16 , 2**N])
+# n = 1
+# VisitedStates = []
+# if N > 5:
+#     while n < Nint:
+#         StateNum = random.randint(0, N)
+#         if StateNum not in VisitedStates:
+#             State = int_to_binary_array(StateNum , N)
+#             InitialCosts.append((StateNum , compute_state_totalcost(State , AllCyclePerms , AllCycleDs)))
+#             n += 1
+#             VisitedStates.append(StateNum)
+# else:
+#     UnvisitedStates = list(range(0 , 2**N))
+#     while n < Nint:
+#         StateNum = random.choice(UnvisitedStates)
+#         State = int_to_binary_array(StateNum , N)
+#         InitialCosts.append((StateNum , compute_state_totalcost(State , AllCyclePerms , AllCycleDs)))
+#         n += 1
+#         VisitedStates.append(StateNum)
+#         UnvisitedStates.remove(StateNum)
+
+# Pick the state with the highest 
+# Lets just start with a normal monte carlo algorithm and then optimize it
+
+
+# Nthresh = 5
+# TotalCost = 0.0
+# VisitedNums = []
+# if N > Nthres:
+#     # Compute the cost using Monte Carlo!
+#     TotalSampledStates = 2**Nthresh
+#     SampledStates = []
+#     SampledCosts = []
+#     CurrentNum = random.int(0 , 2**N)
+#     CurrentState = int_to_binary_array(CurrentNum , N)
+#     CurrentCost = compute_state_cost(CurrentState , AllCyclePerms , AllCycleDs)
+#     SampledStates.append(CurrentState)
+#     SampledCosts.append(CurrentCost)
+#     VisitedNums.append(CurrentNum)
+#     while len(SampledCosts) < TotalSampledStates:
+#         SampleNum = random.int(0 , 2**N)
+#         if SampleNum not in VisitedStates:
+#             VisitedNums.append(SampleNum)
+#             SampleState = int_to_binary_array(SampleNum , N)
+#             SampleCost = compute_state_cost(SampleState , AllCyclePerms , AllCycleDs)
+#             MetropolisP = np.min([1 , SampleCost/CurrentCost])
+#             p = random.random()
+#             if p < MetropolisP:
+#                 CurrentState = SampleState
+#                 CurrentCost = SampleCost
+#                 SampledStates.append(SampleState)
+#                 SampledCosts.append(SampleCost)
+            
+
