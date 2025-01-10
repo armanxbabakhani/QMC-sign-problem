@@ -760,6 +760,12 @@ def generate_random_triple(N):
 
     return random.sample(range(N), 3)
 
+def apply_U2_rotation(AllPerms , AllDiags , spins):
+    # This function applies a U2 transformation on two neighboring spins:
+    AllPermsT = []
+    AllDiagsT = []
+    return AllPermsT, AllDiagsT
+
 def apply_random_transformation(Probabilities , AllPerms , AllDiags , NumOfParticles):
     """
     The input 'Probabilities' specifies the probability of single, two, or three body rotations
@@ -769,7 +775,7 @@ def apply_random_transformation(Probabilities , AllPerms , AllDiags , NumOfParti
     if p < ProbOneBody:
         # Apply single body rotation
         p1 = random.random()
-        NumOfTrans = random.randint(1 , NumOfParticles)
+        NumOfTrans = random.randint(1 , 3) # k-body rotations, at most k=3 (we can play around with this)
         Spins = generate_random_spins(NumOfTrans)
         if p1 <= 0.5:
             # Apply hadamard at a randomly picked spin
@@ -787,6 +793,13 @@ def apply_random_transformation(Probabilities , AllPerms , AllDiags , NumOfParti
         CNOTPairs = generate_random_pairs(NumOfParticles)
         transformation = 'CNOT on the pairs ' + str(CNOTPairs) + ' applied' # The first term of the pair is the control spin and the second is the target!
         AllPermsT , AllDiagsT = apply_CNOT(AllPerms, AllDiags , CNOTPairs)
+    else:
+        # randomly pick a neighboring spin!
+        spins = random.randint(0, NumOfParticles-1)
+        spins = [spins , spins+1]
+        # Apply U2 transformation on the neighboring spins.
+        AllPermsT , AllDiagsT = apply_U2_rotation(AllPerms , AllDiags , spins) 
+
 
     return AllPermsT , AllDiagsT , transformation
 
