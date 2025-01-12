@@ -11,8 +11,12 @@ def NSpinTriangularHeisenbergPauli(N):
 
 #AllPermsBinaryNew , AllDiagsBinaryNew , transformation = apply_random_transformation([0 , 1.0 , 0] , AllPermsBinary , AllDiagsBinary , NumOfParticles)
 #AllPermsBinaryNew , AllDiagsBinaryNew = apply_single_body(AllPermsBinary, AllDiagsBinary , [1 , 2] , 'H')
-AllPermsBinaryNew , AllDiagsBinaryNew = apply_single_body(AllPermsBinary, AllDiagsBinary , [] , 'S')
-AllPermsBinaryNew , AllDiagsBinaryNew = apply_CNOT(AllPermsBinaryNew , AllDiagsBinaryNew , [tuple([0,1])])
+#AllPermsBinaryNew , AllDiagsBinaryNew = apply_single_body(AllPermsBinary, AllDiagsBinary , [] , 'S')
+#AllPermsBinaryNew , AllDiagsBinaryNew = apply_CNOT(AllPermsBinaryNew , AllDiagsBinaryNew , [tuple([0,1])])
+AllPermsBinaryNew , AllDiagsBinaryNew = apply_U2_rotation(AllPermsBinary, AllDiagsBinary , (1,2))
+AllPermsBinaryNew , AllDiagsBinaryNew = apply_U2_rotation(AllPermsBinaryNew , AllDiagsBinaryNew , (3,4))
+AllPermsBinaryNew , AllDiagsBinaryNew = apply_U2_rotation(AllPermsBinaryNew , AllDiagsBinaryNew , (5,6))
+AllPermsBinaryNew , AllDiagsBinaryNew = apply_U2_rotation(AllPermsBinaryNew , AllDiagsBinaryNew , (7,8))
 
 IdentityIndex = -1
 PureDiagonalsNew = []
@@ -28,4 +32,4 @@ if IdentityIndex >= 0:
 #print(f'The transformation is {transformation}')
 print(' ')
 
-generate_pauli_file_from_pmr_data(filename.removesuffix(".txt")+'_rotated.txt', AllPermsBinaryNew , AllDiagsBinaryNew , PureDiagonalsNew)
+generate_pauli_file_from_pmr_data(filename.removesuffix(".txt")+'_U2.txt', AllPermsBinaryNew , AllDiagsBinaryNew , PureDiagonalsNew)
