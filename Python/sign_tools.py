@@ -151,7 +151,7 @@ def parse_pauli_file(filename):
         max_particle = 0
         for line in file:
             tokens = line.split()
-            particle_numbers = [int(tokens[i]) for i in range(1, len(tokens), 4)]
+            particle_numbers = [int(tokens[i]) for i in range(1, len(tokens), 2)]
             max_particle = max(max_particle, *particle_numbers)
 
     N = max_particle  # Total number of particles in the system
@@ -166,11 +166,11 @@ def parse_pauli_file(filename):
             binary_vector = np.zeros(2 * N, dtype=int)
 
             # Process each operator in the line
-            for i in range(1, len(tokens), 4):
+            for i in range(1, len(tokens), 2):
                 particle_number = int(tokens[i]) - 1  # Convert to zero-based index
                 pauli_matrix = tokens[i + 1]
-                power = int(tokens[i + 2])  # Not used explicitly in this code
-                spin = tokens[i + 3]       # Not used explicitly in this code
+                #power = int(tokens[i + 2])  # Not used explicitly in this code
+                #spin = tokens[i + 3]       # Not used explicitly in this code
 
                 if pauli_matrix in ['1', 'X']:
                     # Pauli-X
@@ -656,6 +656,224 @@ def apply_CNOT(AllPerms, AllDiags , CNOTPairs):
                 AllDiagsTransformed[index][1].append(NewDiagonal)
     return AllPermsTransformed, AllDiagsTransformed
 
+w = 2**(-0.5)
+U2TransformationLookup = {
+    #
+    # (0,0,0,0) = II  -->  1 * II
+    #
+    (0,0,0,0) : (
+        (1, (0,0,0,0)),
+    ),
+    
+    #
+    # (0,0,1,0) = IX  -->  ω * ( IX + XZ )
+    #
+    (0,0,1,0) : (
+        (w, (0,0,1,0)),    #  + w * IX
+        (w, (1,0,0,1)),    #  + w * XZ
+    ),
+    
+    #
+    # (0,0,1,1) = IY  -->  ω * ( IY + YZ )
+    #
+    (0,0,1,1) : (
+        (w, (0,0,1,1)),     #  + w * IY
+        (w, (1,1,0,1)),     #  + w * YZ
+    ),
+    
+    #
+    # (0,0,0,1) = IZ  -->  0.5 * ( IZ - XX - YY + ZI )
+    #
+    (0,0,0,1) : (
+        (0.5,  (0,0,0,1)),  #  +0.5 * IZ
+        (-0.5, (1,0,1,0)),  #  -0.5 * XX   
+        (-0.5, (1,1,1,1)),  #  -0.5 * YY
+        (0.5,  (0,1,0,0)),  #  +0.5 * ZI 
+    ),
+    
+    #
+    # (1,0,0,0) = XI  -->  ω * ( XI - ZX )
+    #
+    (1,0,0,0) : (
+        (w,  (1,0,0,0)),    #  + w * XI
+        (-w, (0,1,1,0)),    #  - w * ZX
+    ),
+    
+    #
+    # (1,0,1,0) = XX  -->  0.5 * ( IZ + XX - YY - ZI )
+    #
+    (1,0,1,0) : (
+        (0.5,  (0,0,0,1)),  #  +0.5 * IZ
+        (0.5,  (1,0,1,0)),  #  +0.5 * XX
+        (-0.5, (1,1,1,1)),  #  -0.5 * YY
+        (-0.5, (0,1,0,0)),  #  -0.5 * ZI
+    ),
+    
+    #
+    # (1,0,1,1) = XY  -->  XY
+    #
+    (1,0,1,1) : (
+        (1, (1,0,1,1)),  #  Commutes with U2
+    ),
+    
+    #
+    # (1,0,0,1) = XZ  -->  -ω * ( IX - XZ ) = -ω IX + ω XZ
+    #
+    (1,0,0,1) : (
+        (-w, (0,0,1,0)),  #  - w * IX
+            (w, (1,0,0,1)),  #  + w * XZ
+    ),
+    
+    #
+    # (1,1,0,0) = YI  -->  ω * ( YI - ZY )
+    #
+    (1,1,0,0) : (
+        ( w,  (1,1,0,0)),  #  + w * YI
+        (-w,  (0,1,1,1)),  #  - w * ZY
+    ),
+    
+    #
+    # (1,1,1,0) = YX  -->  YX
+    #
+    (1,1,1,0) : (
+        (1, (1,1,1,0)),   #  Commutes with U2
+    ),
+    
+    #
+    # (1,1,1,1) = YY  -->  0.5 * ( IZ - XX + YY - ZI )
+    #
+    (1,1,1,1) : (
+        (0.5,  (0,0,0,1)),  #  +0.5 * IZ
+        (-0.5, (1,0,1,0)),  #  -0.5 * XX
+        (0.5,  (1,1,1,1)),  #  +0.5 * YY
+        (-0.5, (0,1,0,0)),  #  -0.5 * ZI
+    ),
+    
+    #
+    # (1,1,0,1) = YZ  -->  -ω * ( IY - YZ ) = -ω IY + ω YZ
+    #
+    (1,1,0,1) : (
+        (-w, (0,0,1,1)),  #  - w * IY
+         (w, (1,1,0,1)),  #  + w * YZ
+    ),
+    
+    #
+    # (0,1,0,0) = ZI  -->  0.5 * ( IZ + XX + YY + ZI )
+    #
+    (0,1,0,0) : (
+        (0.5, (0,0,0,1)),  #  +0.5 * IZ
+        (0.5, (1,0,1,0)),  #  +0.5 * XX
+        (0.5, (1,1,1,1)),  #  +0.5 * YY
+        (0.5, (0,1,0,0)),  #  +0.5 * ZI
+    ),
+    
+    #
+    # (0,1,1,0) = ZX  -->  ω * ( XI + ZX )
+    #
+    (0,1,1,0) : (
+        (w, (1,0,0,0)),   #  + w * XI
+        (w, (0,1,1,0)),   #  + w * ZX
+    ),
+    
+    #
+    # (0,1,1,1) = ZY  -->  ω * ( YI + ZY )
+    #
+    (0,1,1,1) : (
+        (w, (1,1,0,0)),   #  + w * YI
+        (w, (0,1,1,1)),   #  + w * ZY
+    ),
+    
+    #
+    # (0,1,0,1) = ZZ  -->  ZZ
+    #
+    (0,1,0,1) : (
+        (1, (0,1,0,1)), #  Commutes with U2
+    ),
+}
+def U2_xvec_zvec_onspins(Xvec , Zvec , U2Pair):
+    """
+    This function applies U2 on the binary x and z vectors of pauli string
+    """
+    Xvecsfinal = []
+    Zvecsfinal = []
+    spin1 = U2Pair[0]
+    spin2 = U2Pair[1]
+    key = (Xvec[spin1], Zvec[spin1], Xvec[spin2], Zvec[spin2])
+    phase = 1
+    if (Xvec[spin1] == 1) and (Zvec[spin1] == 1):
+        phase *= -1j
+    if (Xvec[spin2] == 1) and (Zvec[spin2] == 1):
+        phase *= -1j
+    PauliTransformed = U2TransformationLookup[key]
+
+    coeffs = []
+    for PauliTerm in (PauliTransformed):
+        coeff = phase * PauliTerm[0]
+        NewPauli = PauliTerm[1]
+
+        Xvecfinal = Xvec.copy()
+        Zvecfinal = Zvec.copy()
+
+        Xvecfinal[spin1] = NewPauli[0]
+        Zvecfinal[spin1] = NewPauli[1]
+        if (NewPauli[0] == 1) and (NewPauli[1] == 1):
+            coeff *= 1j
+        Xvecfinal[spin2] = NewPauli[2]
+        Zvecfinal[spin2] = NewPauli[3]
+        if (NewPauli[2] == 1) and (NewPauli[3] == 1):
+            coeff *= 1j
+
+        Xvecsfinal.append(Xvecfinal)
+        Zvecsfinal.append(Zvecfinal)
+        coeffs.append(coeff)
+
+    return Xvecsfinal , Zvecsfinal , coeffs
+
+def apply_U2_rotation(AllPerms , AllDiags , spins):
+    """
+    Apply a U2 transformation on specified pair of Spins
+    """
+    AllPermsTransformed = []
+    AllDiagsTransformed = []
+
+    for i in range(len(AllDiags)):
+        for j in range(len(AllDiags[i][1])):
+            coefficient = AllDiags[i][0][j]
+
+            NewPermutations , NewDiagonals , NewCoefficients = U2_xvec_zvec_onspins(AllPerms[i] , AllDiags[i][1][j] , spins)
+            for k , NewPermutation in enumerate (NewPermutations):
+                NewDiagonal = NewDiagonals[k]
+                NewCoefficient = coefficient * NewCoefficients[k]
+                PermFound , index = permutation_found(NewPermutation , AllPermsTransformed)
+
+                if not PermFound:
+                    AllPermsTransformed.append(NewPermutation)
+                    AllDiagsTransformed.append([[NewCoefficient] , [NewDiagonal]])
+                else:
+                    DiagFound , index2 = permutation_found(NewDiagonal , AllDiagsTransformed[index][1])
+                    if not DiagFound:
+                        AllDiagsTransformed[index][0].append(NewCoefficient)
+                        AllDiagsTransformed[index][1].append(NewDiagonal)
+                    else:
+                        PreviousCoefficient = AllDiagsTransformed[index][0][index2]
+                        NewCoefficient += PreviousCoefficient
+
+                        # Term killed
+                        if abs(NewCoefficient) < 1E-7:
+                            # Delete term
+                            AllDiagsTransformed[index][0].pop(index2)
+                            AllDiagsTransformed[index][1].pop(index2)
+                        else:
+                            # Update term
+                            AllDiagsTransformed[index][0][index2] = NewCoefficient
+
+    return AllPermsTransformed , AllDiagsTransformed
+
+def apply_random_clifford(AllPerms , AllDiags, spins):
+    """
+    Apply a random Clifford transformation on specified set of spins
+    """
+    return AllPermsTransformed , AllDiagsTransformed
 
 # This function needs to be updated! 
 # def Toff_xvec_zvec_onspins(Xvec , Zvec , ToffTruple):
@@ -692,7 +910,6 @@ def apply_CNOT(AllPerms, AllDiags , CNOTPairs):
 #                 AllDiagsTransformed[index][0].append(coefficient)
 #                 AllDiagsTransformed[index][1].append(NewDiagonal)
 #     return AllPermsTransformed, AllDiagsTransformed
-
 def generate_random_spins(N):
     """
     Generate a random array of unique integers from 0 to N-1.
@@ -760,13 +977,7 @@ def generate_random_triple(N):
 
     return random.sample(range(N), 3)
 
-def apply_U2_rotation(AllPerms , AllDiags , spins):
-    # This function applies a U2 transformation on two neighboring spins:
-    AllPermsT = []
-    AllDiagsT = []
-    return AllPermsT, AllDiagsT
-
-def apply_random_transformation(Probabilities , AllPerms , AllDiags , NumOfParticles):
+def apply_random_transformation(Probabilities , AllPerms , AllDiags , NumOfParticles , temp):
     """
     The input 'Probabilities' specifies the probability of single, two, or three body rotations
     """
@@ -794,12 +1005,11 @@ def apply_random_transformation(Probabilities , AllPerms , AllDiags , NumOfParti
         transformation = 'CNOT on the pairs ' + str(CNOTPairs) + ' applied' # The first term of the pair is the control spin and the second is the target!
         AllPermsT , AllDiagsT = apply_CNOT(AllPerms, AllDiags , CNOTPairs)
     else:
-        # randomly pick a neighboring spin!
-        spins = random.randint(0, NumOfParticles-1)
-        spins = [spins , spins+1]
-        # Apply U2 transformation on the neighboring spins.
-        AllPermsT , AllDiagsT = apply_U2_rotation(AllPerms , AllDiags , spins) 
-
+        # Randomly pick two spins
+        spins = np.random.choice(range(NumOfParticles), size = 2, replace=False)
+        # Apply U2 transformation on the spins
+        transformation = 'U2 on the pair ' + str(spins) + ' applied'
+        AllPermsT , AllDiagsT = apply_U2_rotation(AllPerms , AllDiags , temp) 
 
     return AllPermsT , AllDiagsT , transformation
 
@@ -948,5 +1158,3 @@ def generate_pauli_file_from_pmr_data(output_filename, permutations, off_diagona
 #                 CurrentCost = SampleCost
 #                 SampledStates.append(SampleState)
 #                 SampledCosts.append(SampleCost)
-            
-
