@@ -977,7 +977,7 @@ def generate_random_triple(N):
 
     return random.sample(range(N), 3)
 
-def apply_random_transformation(Probabilities , AllPerms , AllDiags , NumOfParticles , temp):
+def apply_random_transformation(Probabilities , AllPerms , AllDiags , NumOfParticles):
     """
     The input 'Probabilities' specifies the probability of single, two, or three body rotations
     """
