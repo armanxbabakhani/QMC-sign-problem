@@ -7,8 +7,6 @@ if len(PureDiagonals) > 0:
     AllPermsBinary.append([0]*NumOfParticles)
     AllDiagsBinary.append(PureDiagonals[0])
 
-def NSpinTriangularHeisenbergPauli(N):
-
 #AllPermsBinaryNew , AllDiagsBinaryNew , transformation = apply_random_transformation([0 , 1.0 , 0] , AllPermsBinary , AllDiagsBinary , NumOfParticles)
 #AllPermsBinaryNew , AllDiagsBinaryNew = apply_single_body(AllPermsBinary, AllDiagsBinary , [1 , 2] , 'H')
 AllPermsBinaryNew , AllDiagsBinaryNew = apply_single_body(AllPermsBinary, AllDiagsBinary , [] , 'S')
