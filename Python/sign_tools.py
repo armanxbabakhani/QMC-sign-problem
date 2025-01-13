@@ -5,6 +5,7 @@ from collections import defaultdict
 import itertools
 import cmath
 import random
+from random_clifford import random_clifford_tableau
 
 N = 0
 
@@ -327,7 +328,6 @@ def generate_cyclic_permutations_with_offdiagonals(PermCycs , AllPs , AllDs):
     UniquePermutations = generate_cyclic_permutations(PermCycs)
     UniqueDiagonals = [generate_cycle_diagonals(Cycle , AllPs , AllDs) for Cycle in UniquePermutations]
     return UniquePermutations , UniqueDiagonals
-
 
 def int_to_binary_array(n , N):
     binary_string = bin(n)[2:]  # Convert to binary and remove '0b' prefix
@@ -869,10 +869,68 @@ def apply_U2_rotation(AllPerms , AllDiags , spins):
 
     return AllPermsTransformed , AllDiagsTransformed
 
-def apply_random_clifford(AllPerms , AllDiags, spins):
+def Clifford_xvec_zvec_onspins(Xvec , Zvec , Tableau , NumOfParticles):
+    SymplecticBlock = Tableau[:, :2*NumOfParticles]
+    PhaseColumn     = Tableau[:,  2*NumOfParticles]
+
+    ZXvecfinal = np.zeros(2*NumOfParticles, dtype=bool)
+    finalSign = False
+
+    for i in range(NumOfParticles):
+        if Zvec[i]:
+            ZXvecfinal  = np.logical_xor(ZXvecfinal, SymplecticBlock[i])
+            finalSign = np.logical_xor(finalSign, PhaseColumn[i])
+
+    for i in range(NumOfParticles):
+        if Xvec[i]:
+            row_index = NumOfParticles + i
+            ZXvecfinal  = np.logical_xor(ZXvecfinal, SymplecticBlock[row_index])
+            finalSign = np.logical_xor(finalSign, PhaseColumn[row_index])
+
+    Xvecfinal = ZXvecfinal[:NumOfParticles].astype(int).tolist()
+    Zvecfinal = ZXvecfinal[NumOfParticles:2*NumOfParticles].astype(int).tolist()
+    finalSign = 1 if finalSign == False else -1
+
+    return Xvecfinal , Zvecfinal , finalSign
+
+def apply_global_clifford_rotation(AllPerms , AllDiags , NumOfParticles):
     """
-    Apply a random Clifford transformation on specified set of spins
+    Apply a random, global Clifford rotation
+
+    Note: Application of the rotation on specified spins to be implemented
     """
+    CliffordTableau = random_clifford_tableau(NumOfParticles)
+
+    AllPermsTransformed = []
+    AllDiagsTransformed = []
+
+    for i in range(len(AllDiags)):
+        for j in range(len(AllDiags[i][1])):
+            NewPermutation , NewDiagonal , finalSign = Clifford_xvec_zvec_onspins(AllPerms[i] , AllDiags[i][1][j], CliffordTableau, NumOfParticles)
+            NewCoefficient = finalSign * AllDiags[i][0][j]
+            PermFound , index = permutation_found(NewPermutation , AllPermsTransformed)
+
+            if not PermFound:
+                AllPermsTransformed.append(NewPermutation)
+                AllDiagsTransformed.append([[NewCoefficient] , [NewDiagonal]])
+            else:
+                DiagFound , index2 = permutation_found(NewDiagonal[1] , AllDiagsTransformed[index][1])
+                if not DiagFound:
+                    AllDiagsTransformed[index][0].append(NewCoefficient)
+                    AllDiagsTransformed[index][1].append(NewDiagonal)
+                else:
+                    PreviousCoefficient = AllDiagsTransformed[index][0][index2]
+                    NewCoefficient += PreviousCoefficient
+
+                    # Term killed
+                    if abs(NewCoefficient) < 1E-7:
+                        # Delete term
+                        AllDiagsTransformed[index][0].pop(index2)
+                        AllDiagsTransformed[index][1].pop(index2)
+                    else:
+                        # Update term
+                        AllDiagsTransformed[index][0][index2] = NewCoefficient
+
     return AllPermsTransformed , AllDiagsTransformed
 
 # This function needs to be updated! 
@@ -981,7 +1039,7 @@ def apply_random_transformation(Probabilities , AllPerms , AllDiags , NumOfParti
     """
     The input 'Probabilities' specifies the probability of single, two, or three body rotations
     """
-    ProbOneBody , ProbTwoBody , ProbThreeBody = Probabilities
+    ProbOneBody , ProbTwoBody , ProbNBody = Probabilities
     p = random.random()
     if p < ProbOneBody:
         # Apply single body rotation
@@ -996,7 +1054,7 @@ def apply_random_transformation(Probabilities , AllPerms , AllDiags , NumOfParti
             # Apply S gate at a randomly picked spin
             RotationType = 'S'
             transformation = 'S-gates on spins ' +  str(Spins) + ' applied'
-        AllPermsT , AllDiagsT = apply_single_body(AllPerms, AllDiags , Spins , RotationType)
+        AllPermsT , AllDiagsT = apply_single_body(AllPerms , AllDiags , Spins , RotationType)
     elif p < ProbOneBody + ProbTwoBody:
         # Apply two body rotation (CNOT)
         # randomly pick a tuple (i , j) and apply CNOT with control on i spin , and target at j spin...
@@ -1004,12 +1062,17 @@ def apply_random_transformation(Probabilities , AllPerms , AllDiags , NumOfParti
         CNOTPairs = generate_random_pairs(NumOfParticles)
         transformation = 'CNOT on the pairs ' + str(CNOTPairs) + ' applied' # The first term of the pair is the control spin and the second is the target!
         AllPermsT , AllDiagsT = apply_CNOT(AllPerms, AllDiags , CNOTPairs)
+    elif p < ProbOneBody + ProbTwoBody + ProbNBody:
+        # Apply random N body Clifford rotation
+        transformation = 'Random global Clifford applied'
+        AllPermsT , AllDiagsT = apply_global_clifford_rotation(AllPerms , AllDiags, NumOfParticles)
     else:
+        # Apply two body U2 rotation
         # Randomly pick two spins
         spins = np.random.choice(range(NumOfParticles), size = 2, replace=False)
         # Apply U2 transformation on the spins
         transformation = 'U2 on the pair ' + str(spins) + ' applied'
-        AllPermsT , AllDiagsT = apply_U2_rotation(AllPerms , AllDiags , temp) 
+        AllPermsT , AllDiagsT = apply_U2_rotation(AllPerms , AllDiags , spins) 
 
     return AllPermsT , AllDiagsT , transformation
 
