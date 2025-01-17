@@ -449,6 +449,13 @@ def get_all_cycles_from_file(filename):
 
 
 def total_hamiltonian_cost(AllCycleDiags , AllCyclePerms , NumOfParticles):
+    cost = 0.0
+    for i in range(len(AllCyclePerms)):
+        cost += total_cost_of_cycle(AllCycleDiags[i] , AllCyclePerms[i] , NumOfParticles)
+    return cost
+
+    
+def total_hamiltonian_cost_estimate(AllCycleDiags , AllCyclePerms , NumOfParticles):
     Nthresh = 4
     N = NumOfParticles
     FinalCost = 0.0

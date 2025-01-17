@@ -29,15 +29,8 @@ for l in NSpinTriangularHeisPauliString(4):
 #AllPermsBinaryNew , AllDiagsBinaryNew = apply_single_body(AllPermsBinary, AllDiagsBinary , [1 , 2] , 'H')
 #AllPermsBinaryNew , AllDiagsBinaryNew = apply_single_body(AllPermsBinary, AllDiagsBinary , [] , 'S')
 #AllPermsBinaryNew , AllDiagsBinaryNew = apply_CNOT(AllPermsBinaryNew , AllDiagsBinaryNew , [tuple([0,1])])
-<<<<<<< Updated upstream
-AllPermsBinaryNew , AllDiagsBinaryNew = apply_U2_rotation(AllPermsBinary, AllDiagsBinary , (1,2))
-AllPermsBinaryNew , AllDiagsBinaryNew = apply_U2_rotation(AllPermsBinaryNew , AllDiagsBinaryNew , (3,4))
-AllPermsBinaryNew , AllDiagsBinaryNew = apply_U2_rotation(AllPermsBinaryNew , AllDiagsBinaryNew , (5,6))
-AllPermsBinaryNew , AllDiagsBinaryNew = apply_U2_rotation(AllPermsBinaryNew , AllDiagsBinaryNew , (7,8))
-=======
-AllPermsBinaryNew , AllDiagsBinaryNew = apply_U2_rotation(AllPermsBinary , AllDiagsBinary , (1, 2))
+#AllPermsBinaryNew , AllDiagsBinaryNew = apply_U2_rotation(AllPermsBinary , AllDiagsBinary , (1, 2))
 #AllPermsBinaryNew , AllDiagsBinaryNew = apply_U2_rotation(AllPermsBinaryNew , AllDiagsBinaryNew , (3, 4))
->>>>>>> Stashed changes
 
 IdentityIndex = -1
 PureDiagonalsNew = []
