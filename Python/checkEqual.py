@@ -20,6 +20,29 @@ pauli_dict = {
     'Z': Z
 }
 
+def convert_to_format(input_data, n):
+    # Initialize the result list
+    result = []
+
+    # Parse each line of the input data
+    for line in input_data.strip().split("\n"):
+        parts = line.split()
+        coefficient = float(parts[0])  # First value is the coefficient
+
+        # Create a list of "I"s (identity operators) with length 5
+        operators = ["I"] * n
+
+        # Update the operators based on the parsed data
+        for i in range(1, len(parts), 2):
+            position = int(parts[i]) - 1  # Convert to 0-based index
+            operator = parts[i + 1]       # Get the operator (X, Y, Z)
+            operators[position] = operator
+
+        # Append the tuple to the result list
+        result.append((coefficient, *operators))
+
+    return result
+
 def tensor_product(pauli_list):
     """
     Given a list of single-qubit Pauli labels (e.g. ['X','I','Z']),
@@ -128,38 +151,24 @@ def matrix_to_pauli_sum(M, tol=1e-12):
     return "\n".join(terms)
 
 # H1 Pauli strings (coefficients and terms)
-H1_pauli = [
-  (1.0, 'X', 'X', 'I', 'I', 'I', 'I') ,
-(1.0, 'Y', 'Y', 'I', 'I', 'I', 'I') ,
-(1.0, 'Z', 'Z', 'I', 'I', 'I', 'I') ,
-(1.0, 'X', 'I', 'X', 'I', 'I', 'I') ,
-(1.0, 'Y', 'I', 'Y', 'I', 'I', 'I') ,
-(1.0, 'Z', 'I', 'Z', 'I', 'I', 'I') ,
-(1.0, 'I', 'X', 'X', 'I', 'I', 'I') ,
-(1.0, 'I', 'Y', 'Y', 'I', 'I', 'I') ,
-(1.0, 'I', 'Z', 'Z', 'I', 'I', 'I') ,
-(1.0, 'I', 'X', 'I', 'X', 'I', 'I') ,
-(1.0, 'I', 'Y', 'I', 'Y', 'I', 'I') ,
-(1.0, 'I', 'Z', 'I', 'Z', 'I', 'I') ,
-(1.0, 'I', 'I', 'X', 'X', 'I', 'I') ,
-(1.0, 'I', 'I', 'Y', 'Y', 'I', 'I') ,
-(1.0, 'I', 'I', 'Z', 'Z', 'I', 'I') ,
-(1.0, 'I', 'I', 'X', 'I', 'X', 'I') ,
-(1.0, 'I', 'I', 'Y', 'I', 'Y', 'I') ,
-(1.0, 'I', 'I', 'Z', 'I', 'Z', 'I') ,
-(1.0, 'I', 'I', 'I', 'X', 'X', 'I') ,
-(1.0, 'I', 'I', 'I', 'Y', 'Y', 'I') ,
-(1.0, 'I', 'I', 'I', 'Z', 'Z', 'I') ,
-(1.0, 'I', 'I', 'I', 'X', 'I', 'X') ,
-(1.0, 'I', 'I', 'I', 'Y', 'I', 'Y') ,
-(1.0, 'I', 'I', 'I', 'Z', 'I', 'Z') ,
-(1.0, 'I', 'I', 'I', 'I', 'X', 'X') ,
-(1.0, 'I', 'I', 'I', 'I', 'Y', 'Y') ,
-(1.0, 'I', 'I', 'I', 'I', 'Z', 'Z')
-]
+H1_pauli = """1.0 1 X 2 X
+1.0 1 Y 2 Y
+1.0 1 Z 2 Z
+1.0 1 X 3 X
+1.0 1 Y 3 Y
+1.0 1 Z 3 Z
+1.0 2 X 3 X
+1.0 2 Y 3 Y
+1.0 2 Z 3 Z
+1.0 2 X 4 X
+1.0 2 Y 4 Y
+1.0 2 Z 4 Z
+1.0 3 X 4 X
+1.0 3 Y 4 Y
+1.0 3 Z 4 Z"""
 
 # Construct H1
-H1 = pauli_sum_to_matrix(H1_pauli)
+H1 = pauli_sum_to_matrix(convert_to_format(H1_pauli, 4))
 
 # Get U_2
 U_2 = np.array([
@@ -169,8 +178,8 @@ U_2 = np.array([
     [0, 0, 0, 1]
 ], dtype=complex)
 
-# Create the full U matrix (I ⊗ U_2 ⊗ I ⊗ I)
-U_full = np.kron(np.kron(np.kron(I, U_2), U_2), I)
+# Create the full U matrix 
+U_full = np.kron(np.kron(I, U_2), I)
 
 # Conjugate H1 by U_full
 H1_conjugated = U_full @ H1 @ U_full.conj().T
@@ -178,77 +187,33 @@ H1_conjugated = U_full @ H1 @ U_full.conj().T
 #print(matrix_to_pauli_sum(H1_conjugated))
 
 w = 1/np.sqrt(2)
-H2_pauli = [
-(w, 'X', 'X', 'I', 'I', 'I', 'I') ,
-(w, 'Y', 'Y', 'I', 'I', 'I', 'I') ,
-(w, 'X', 'X', 'Z', 'I', 'I', 'I') ,
-(w, 'Y', 'Y', 'Z', 'I', 'I', 'I') ,
-(-w, 'X', 'Z', 'X', 'I', 'I', 'I') ,
-(-w, 'Y', 'Z', 'Y', 'I', 'I', 'I') ,
-(w, 'X', 'I', 'X', 'I', 'I', 'I') ,
-(w, 'Y', 'I', 'Y', 'I', 'I', 'I') ,
-(0.25, 'I', 'I', 'Z', 'X', 'X', 'I') ,
-(0.25, 'I', 'I', 'Z', 'Y', 'Y', 'I') ,
-(0.25, 'I', 'Z', 'I', 'X', 'X', 'I') ,
-(0.25, 'I', 'Z', 'I', 'Y', 'Y', 'I') ,
-(-0.25, 'I', 'X', 'X', 'I', 'Z', 'I') ,
-(-0.25, 'I', 'X', 'X', 'Z', 'I', 'I') ,
-(-0.25, 'I', 'Y', 'Y', 'I', 'Z', 'I') ,
-(-0.25, 'I', 'Y', 'Y', 'Z', 'I', 'I') ,
-(0.25, 'I', 'X', 'X', 'X', 'X', 'I') ,
-(0.25, 'I', 'X', 'X', 'Y', 'Y', 'I') ,
-(0.25, 'I', 'Y', 'Y', 'X', 'X', 'I') ,
-(0.25, 'I', 'Y', 'Y', 'Y', 'Y', 'I') ,
-(0.5, 'I', 'X', 'I', 'X', 'I', 'I') ,
-(0.5, 'I', 'Y', 'I', 'Y', 'I', 'I') ,
-(0.5, 'I', 'X', 'Z', 'X', 'I', 'I') ,
-(0.5, 'I', 'Y', 'Z', 'Y', 'I', 'I') ,
-(0.5, 'I', 'X', 'Z', 'X', 'Z', 'I') ,
-(0.5, 'I', 'Y', 'Z', 'Y', 'Z', 'I') ,
-(-0.5, 'I', 'X', 'I', 'Z', 'X', 'I') ,
-(-0.5, 'I', 'Y', 'I', 'Z', 'Y', 'I') ,
-(-0.5, 'I', 'X', 'Z', 'Z', 'X', 'I') ,
-(-0.5, 'I', 'Y', 'Z', 'Z', 'Y', 'I') ,
-(0.5, 'I', 'X', 'Z', 'I', 'X', 'I') ,
-(0.5, 'I', 'Y', 'Z', 'I', 'Y', 'I') ,
-(-0.5, 'I', 'Z', 'X', 'X', 'I', 'I') ,
-(-0.5, 'I', 'Z', 'Y', 'Y', 'I', 'I') ,
-(0.5, 'I', 'I', 'X', 'X', 'I', 'I') ,
-(0.5, 'I', 'I', 'Y', 'Y', 'I', 'I') ,
-(0.5, 'I', 'I', 'X', 'X', 'Z', 'I') ,
-(0.5, 'I', 'I', 'Y', 'Y', 'Z', 'I') ,
-(0.5, 'I', 'Z', 'X', 'Z', 'X', 'I') ,
-(0.5, 'I', 'Z', 'Y', 'Z', 'Y', 'I') ,
-(-0.5, 'I', 'I', 'X', 'Z', 'X', 'I') ,
-(-0.5, 'I', 'I', 'Y', 'Z', 'Y', 'I') ,
-(0.5, 'I', 'I', 'X', 'I', 'X', 'I') ,
-(0.5, 'I', 'I', 'Y', 'I', 'Y', 'I') ,
-(w, 'I', 'I', 'I', 'X', 'I', 'X') ,
-(w, 'I', 'I', 'I', 'Y', 'I', 'Y') ,
-(w, 'I', 'I', 'I', 'X', 'Z', 'X') ,
-(w, 'I', 'I', 'I', 'Y', 'Z', 'Y') ,
-(-w, 'I', 'I', 'I', 'Z', 'X', 'X') ,
-(-w, 'I', 'I', 'I', 'Z', 'Y', 'Y') ,
-(w, 'I', 'I', 'I', 'I', 'X', 'X') ,
-(w, 'I', 'I', 'I', 'I', 'Y', 'Y') ,
-(1.0, 'I', 'I', 'Z', 'I', 'I', 'I') ,
-(-1.0, 'I', 'Z', 'I', 'I', 'I', 'I') ,
-(1.0, 'Z', 'I', 'Z', 'I', 'I', 'I') ,
-(1.0, 'Z', 'Z', 'I', 'I', 'I', 'I') ,
-(1.0, 'I', 'Z', 'Z', 'I', 'I', 'I') ,
-(0.75, 'I', 'I', 'Z', 'I', 'Z', 'I') ,
-(0.75, 'I', 'I', 'Z', 'Z', 'I', 'I') ,
-(0.75, 'I', 'Z', 'I', 'I', 'Z', 'I') ,
-(0.75, 'I', 'Z', 'I', 'Z', 'I', 'I') ,
-(1.0, 'I', 'I', 'I', 'Z', 'Z', 'I') ,
-(1.0, 'I', 'I', 'I', 'I', 'Z', 'Z') ,
-(1.0, 'I', 'I', 'I', 'Z', 'I', 'Z') ,
-(1.0, 'I', 'I', 'I', 'I', 'Z', 'I') ,
-(-1.0, 'I', 'I', 'I', 'Z', 'I', 'I')
-]
+H2_pauli = """0.707107 1 X 2 X
+0.707107 1 Y 2 Y
+0.707107 1 X 2 X 3 Z
+0.707107 1 Y 2 Y 3 Z
+-0.707107 1 X 2 Z 3 X
+-0.707107 1 Y 2 Z 3 Y
+0.707107 1 X 3 X
+0.707107 1 Y 3 Y
+0.707107 2 X 4 X
+0.707107 2 Y 4 Y
+0.707107 2 X 3 Z 4 X
+0.707107 2 Y 3 Z 4 Y
+-0.707107 2 Z 3 X 4 X
+-0.707107 2 Z 3 Y 4 Y
+0.707107 3 X 4 X
+0.707107 3 Y 4 Y
+1.000000 3 Z
+-1.000000 2 Z
+1.000000 1 Z 3 Z
+1.000000 1 Z 2 Z
+1.000000 2 Z 3 Z
+1.000000 3 Z 4 Z
+1.000000 2 Z 4 Z
+"""
 
 # Construct H2
-H2 = pauli_sum_to_matrix(H2_pauli)
+H2 = pauli_sum_to_matrix(convert_to_format(H2_pauli, 4))
 
 # Prints 0 (or a number very close to 0) if equal 
 print(np.linalg.norm(H1_conjugated - H2))
