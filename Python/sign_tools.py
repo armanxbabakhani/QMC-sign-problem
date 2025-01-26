@@ -449,16 +449,17 @@ def get_all_cycles_from_file(filename):
 
 
 def total_hamiltonian_cost(AllCycleDiags , AllCyclePerms , NumOfParticles):
-    Nthresh = 4
+    Nthresh = 40
     N = NumOfParticles
     FinalCost = 0.0
     VisitedNums = []
     if N >= Nthresh:
         # Compute the cost using Monte Carlo!
-        TotalSampledStates = 2**(Nthresh-1)
-        AverageCost = 0.0
-        NumRepeats = 20
+        TotalSampledStates = 2**(Nthresh-2)
+        AllCosts = []
+        NumRepeats = 10
         r = 1
+        UpdateUsingPerms = False
         while r < NumRepeats:
             TotalCost = 0.0
             SampledStates = []
@@ -466,6 +467,8 @@ def total_hamiltonian_cost(AllCycleDiags , AllCyclePerms , NumOfParticles):
             CurrentNum = random.randint(0 , 2**N)
             CurrentState = int_to_binary_array(CurrentNum , N)
             CurrentCost = compute_state_totalcost(CurrentState , AllCyclePerms , AllCycleDiags)
+            if CurrentCost > 1E-2:
+                UpdateUsingPerms = True
             SampledStates.append(CurrentState)
             SampledCosts.append(CurrentCost)
             VisitedNums.append(CurrentNum)
@@ -473,21 +476,36 @@ def total_hamiltonian_cost(AllCycleDiags , AllCyclePerms , NumOfParticles):
             # print(f'The sampled cost is {CurrentCost}')
             # print(' ')
             while len(VisitedNums) < TotalSampledStates:
+                # if UpdateUsingPerms:
+                #     RandCycle = random.choice(AllCyclePerms)
+                #     RandPerm = random.choice(RandCycle)
+                #     SampleState = permute_state(CurrentState , RandPerm)
+                #     while(SampleState in SampledStates):
+                #         RandCycle = random.choice(AllCyclePerms)
+                #         RandPerm = random.choice(RandCycle)
+                #         SampleState = permute_state(CurrentState , RandPerm)
+                #     SampleCost = compute_state_totalcost(SampleState , AllCyclePerms , AllCycleDiags)
+                # else:
+                #     SampleNum = random.randint(0 , 2**N)
+                #     SampleState = int_to_binary_array(SampleNum , N)
+                #     SampleCost = compute_state_totalcost(SampleState , AllCyclePerms , AllCycleDiags)
                 SampleNum = random.randint(0 , 2**N)
                 SampleState = int_to_binary_array(SampleNum , N)
                 SampleCost = compute_state_totalcost(SampleState , AllCyclePerms , AllCycleDiags)
-                print(f'Sampled Num is {SampleNum}')
-                print(f'The Sampled State is {SampleState}')
-                print(f'The Sampled cost is {SampleCost}')
-                print(f'The Current State is {CurrentState}')
-                print(f'The Current cost is {CurrentCost}')
+                if SampleCost > 1E-2:
+                    UpdateUsingPerms = True
+                # print(f'Sampled Num is {SampleNum}')
+                # print(f'The Sampled State is {SampleState}')
+                # print(f'The Sampled cost is {SampleCost}')
+                # print(f'The Current State is {CurrentState}')
+                # print(f'The Current cost is {CurrentCost}')
                 if abs(CurrentCost) < 1E-7:
                     MetropolisP = 1.0
                 else:
                     MetropolisP = np.min([1.0 , SampleCost/CurrentCost])
                 p = random.random()
-                print(f'p is {p} , and the MatropolisP is {MetropolisP}')
-                print(' ')
+                # print(f'p is {p} , and the MatropolisP is {MetropolisP}')
+                # print(' ')
                 if p < MetropolisP:
                     # print(f'The state is accepted!')
                     # print(' ')
@@ -497,9 +515,9 @@ def total_hamiltonian_cost(AllCycleDiags , AllCyclePerms , NumOfParticles):
                     SampledCosts.append(SampleCost)
                     VisitedNums.append(SampleNum)
                     TotalCost += SampleCost
-            AverageCost = (AverageCost*(r-1) + TotalCost)/r
+            AllCosts.append(TotalCost)
             r += 1
-        FinalCost = AverageCost
+        FinalCost = np.max(AllCosts)
     else:
         # Computing the cost function exactly
         for i in range(len(AllCyclePerms)):
@@ -509,15 +527,17 @@ def total_hamiltonian_cost(AllCycleDiags , AllCyclePerms , NumOfParticles):
 
 
 def total_cost_from_binary_operators(AllPermsBinary , AllDiagsBinary):
-    NumOfParticles = len(AllPermsBinary[0])    
+    NumOfParticles = len(AllPermsBinary[0])
 
     # Remove the identity if it is in AllPermsBinary
-    AllPermsBinaryWOIden = AllPermsBinary.copy()
-    AllDiagsBinaryWOIden = AllDiagsBinary.copy()
+    AllPermsBinaryWOIden = []
+    AllDiagsBinaryWOIden = []
 
-    AllPermsBinaryWOIden = [AllPermsBinaryWOIden[i] for i in range(len(AllPermsBinary)) if not AllPermsBinaryWOIden[i]==[0]*NumOfParticles ]
-    if len(AllPermsBinaryWOIden) < len(AllPermsBinary):
-        AllDiagsBinaryWOIden = AllDiagsBinaryWOIden[:len(AllDiagsBinaryWOIden)-1]
+    for i in range(len(AllPermsBinary)):
+        if not AllPermsBinary[i]==[0]*NumOfParticles:
+            AllPermsBinaryWOIden.append(AllPermsBinary[i])
+            AllDiagsBinaryWOIden.append(AllDiagsBinary[i])
+
 
     # Convert binary permutations into vector of int indices
     PermutationIndices = []
@@ -1082,10 +1102,10 @@ def apply_random_transformation(Probabilities , AllPerms , AllDiags , NumOfParti
         CNOTPairs = generate_random_pairs(NumOfParticles)
         transformation = 'CNOT on the pairs ' + str(CNOTPairs) + ' applied' # The first term of the pair is the control spin and the second is the target!
         AllPermsT , AllDiagsT = apply_CNOT(AllPerms, AllDiags , CNOTPairs)
-    elif p < ProbOneBody + ProbTwoBody + ProbNBody:
-        # Apply random N body Clifford rotation
-        transformation = 'Random global Clifford applied'
-        AllPermsT , AllDiagsT = apply_global_clifford_rotation(AllPerms , AllDiags, NumOfParticles)
+    #elif p < ProbOneBody + ProbTwoBody + ProbNBody:
+    #    # Apply random N body Clifford rotation
+    #    transformation = 'Random global Clifford applied'
+    #    AllPermsT , AllDiagsT = apply_global_clifford_rotation(AllPerms , AllDiags, NumOfParticles)
     else:
         # Apply two body U2 rotation
         # Randomly pick two spins
