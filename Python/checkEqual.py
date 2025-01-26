@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.linalg import eigvals
 from itertools import product
 
 I = np.array([[1, 0],
@@ -19,6 +20,51 @@ pauli_dict = {
     'Y': Y,
     'Z': Z
 }
+
+def are_unitarily_similar(A, B):
+    """
+    Determines if two square matrices A and B are unitarily similar by comparing eigenvalues.
+
+    Parameters:
+    A (np.ndarray): A square matrix.
+    B (np.ndarray): Another square matrix.
+
+    Returns:
+    bool: True if A and B are unitarily similar, False otherwise.
+    """
+    # Check if matrices are square and of the same size
+    if A.shape != B.shape or A.shape[0] != A.shape[1]:
+        return False
+
+    # Compute eigenvalues
+    eigvals_A = np.sort(eigvals(A))
+    eigvals_B = np.sort(eigvals(B))
+
+    # Compare eigenvalues, allowing for some numerical tolerance
+    return np.allclose(eigvals_A, eigvals_B, atol=1e-5)
+
+def convert_to_format(input_data, n):
+    # Initialize the result list
+    result = []
+
+    # Parse each line of the input data
+    for line in input_data.strip().split("\n"):
+        parts = line.split()
+        coefficient = complex(parts[0])  # First value is the coefficient
+
+        # Create a list of "I"s (identity operators) with length 5
+        operators = ["I"] * n
+
+        # Update the operators based on the parsed data
+        for i in range(1, len(parts), 2):
+            position = int(parts[i]) - 1  # Convert to 0-based index
+            operator = parts[i + 1]       # Get the operator (X, Y, Z)
+            operators[position] = operator
+
+        # Append the tuple to the result list
+        result.append((coefficient, *operators))
+
+    return result
 
 def tensor_product(pauli_list):
     """
@@ -80,7 +126,10 @@ def generate_n_qubit_paulis(n):
     single_qubit_paulis = generate_single_qubit_paulis()
     for combo in product(single_qubit_paulis, repeat=n):
         # combo is a tuple like (("X", X_matrix), ("Z", Z_matrix), ...)
-        label = "".join(c[0] for c in combo)
+        label = ""
+        for i, c in enumerate (combo):
+            if c[0] != "I":
+                label += str(i+1)+" "+c[0]+" "
         # Build the full n-qubit Pauli by Kronecker product
         mat = combo[0][1]
         for c in combo[1:]:
@@ -118,49 +167,120 @@ def matrix_to_pauli_sum(M, tol=1e-12):
                 # effectively real
                 coeff_str = f"{coeff.real:.4g}"
             else:
-                coeff_str = f"({coeff.real:.4g}{coeff.imag:+.4g}j)"
+                coeff_str = f"{coeff.real:.4g}{coeff.imag:+.4g}j"
             
-            terms.append(f"{coeff_str} * {label}")
+            terms.append(f"{coeff_str} {label}")
     
     # Join all non-zero terms with " + "
     if not terms:
         return "0"
     return "\n".join(terms)
 
+def NSpinTriangularHeisPauliString(N):
+	PauliString = []
+	
+	for i in range (N-2):
+		for j in range (2,4):
+			PauliString.append("1.0 %d X %d X"%(i+1,i+j))
+			PauliString.append("1.0 %d Y %d Y"%(i+1,i+j))
+			PauliString.append("1.0 %d Z %d Z"%(i+1,i+j))
+			
+	PauliString.append("1.0 %d X %d X"%(N-1,N))
+	PauliString.append("1.0 %d Y %d Y"%(N-1,N))
+	PauliString.append("1.0 %d Z %d Z"%(N-1,N))
+	
+	return PauliString
+
+def diagonalizing_unitary(matrix):
+    """
+    This function returns a unitary matrix that diagonalizes the given Hermitian matrix.
+    
+    Parameters:
+    matrix (np.array): A Hermitian matrix.
+    
+    Returns:
+    tuple: A tuple containing the unitary matrix and the diagonal matrix of eigenvalues.
+    """
+    # Check if the matrix is Hermitian
+    if not np.allclose(matrix, matrix.conj().T):
+        raise ValueError("The matrix is not Hermitian")
+    
+    # Compute eigenvalues and eigenvectors
+    eigenvalues, eigenvectors = np.linalg.eigh(matrix)
+    
+    # The eigenvectors form a unitary matrix
+    return eigenvectors
+
+def NSpinTriangularHeisPauliString(N):
+	PauliString = []
+	
+	for i in range (N-2):
+		for j in range (2,4):
+			PauliString.append("1.0 %d X %d X"%(i+1,i+j))
+			PauliString.append("1.0 %d Y %d Y"%(i+1,i+j))
+			PauliString.append("1.0 %d Z %d Z"%(i+1,i+j))
+			
+	PauliString.append("1.0 %d X %d X"%(N-1,N))
+	PauliString.append("1.0 %d Y %d Y"%(N-1,N))
+	PauliString.append("1.0 %d Z %d Z"%(N-1,N))
+
+	return "\n".join(PauliString)
+
 # H1 Pauli strings (coefficients and terms)
-H1_pauli = [
-  (1.0, 'X', 'X', 'I', 'I', 'I', 'I') ,
-(1.0, 'Y', 'Y', 'I', 'I', 'I', 'I') ,
-(1.0, 'Z', 'Z', 'I', 'I', 'I', 'I') ,
-(1.0, 'X', 'I', 'X', 'I', 'I', 'I') ,
-(1.0, 'Y', 'I', 'Y', 'I', 'I', 'I') ,
-(1.0, 'Z', 'I', 'Z', 'I', 'I', 'I') ,
-(1.0, 'I', 'X', 'X', 'I', 'I', 'I') ,
-(1.0, 'I', 'Y', 'Y', 'I', 'I', 'I') ,
-(1.0, 'I', 'Z', 'Z', 'I', 'I', 'I') ,
-(1.0, 'I', 'X', 'I', 'X', 'I', 'I') ,
-(1.0, 'I', 'Y', 'I', 'Y', 'I', 'I') ,
-(1.0, 'I', 'Z', 'I', 'Z', 'I', 'I') ,
-(1.0, 'I', 'I', 'X', 'X', 'I', 'I') ,
-(1.0, 'I', 'I', 'Y', 'Y', 'I', 'I') ,
-(1.0, 'I', 'I', 'Z', 'Z', 'I', 'I') ,
-(1.0, 'I', 'I', 'X', 'I', 'X', 'I') ,
-(1.0, 'I', 'I', 'Y', 'I', 'Y', 'I') ,
-(1.0, 'I', 'I', 'Z', 'I', 'Z', 'I') ,
-(1.0, 'I', 'I', 'I', 'X', 'X', 'I') ,
-(1.0, 'I', 'I', 'I', 'Y', 'Y', 'I') ,
-(1.0, 'I', 'I', 'I', 'Z', 'Z', 'I') ,
-(1.0, 'I', 'I', 'I', 'X', 'I', 'X') ,
-(1.0, 'I', 'I', 'I', 'Y', 'I', 'Y') ,
-(1.0, 'I', 'I', 'I', 'Z', 'I', 'Z') ,
-(1.0, 'I', 'I', 'I', 'I', 'X', 'X') ,
-(1.0, 'I', 'I', 'I', 'I', 'Y', 'Y') ,
-(1.0, 'I', 'I', 'I', 'I', 'Z', 'Z')
-]
-
+H1_pauli = """1.0 1 X 2 X
+1.0 1 Y 2 Y
+1.0 1 Z 2 Z
+1.0 1 X 3 X
+1.0 1 Y 3 Y
+1.0 1 Z 3 Z
+1.0 2 X 3 X
+1.0 2 Y 3 Y
+1.0 2 Z 3 Z
+1.0 2 X 4 X
+1.0 2 Y 4 Y
+1.0 2 Z 4 Z
+1.0 3 X 4 X
+1.0 3 Y 4 Y
+1.0 3 Z 4 Z
+1.0 3 X 5 X
+1.0 3 Y 5 Y
+1.0 3 Z 5 Z
+1.0 4 X 5 X
+1.0 4 Y 5 Y
+1.0 4 Z 5 Z
+"""
 # Construct H1
-H1 = pauli_sum_to_matrix(H1_pauli)
+H1 = pauli_sum_to_matrix(convert_to_format(H1_pauli, 5))
 
+H2_pauli = """1.000000 1 X 2 Z 3 Z 4 Z 5 Z
+1.000000 1 X 3 Z 4 Z 5 Z
+-1.000000 1 X 5 Z
+1.000000 1 X 3 Z 5 Z
+1.000000 1 Y 2 Y 3 Z 4 Y 5 Y
+-1.000000 4 X 5 Z
+1.000000 2 Z 4 X 5 Z
+-1.000000 1 Y 2 Y 3 Z 4 Z 5 X
+1.000000 1 X 2 Z 3 Z 4 Y 5 X
+1.000000 3 Y 5 Z
+1.000000 2 Z 4 X 5 Y
+1.000000 2 Z 3 Z 4 X 5 Y
+1.000000 1 Y 2 Y 3 X 4 Z 5 Y
+-1.000000 1 Z 2 Y 3 X 4 Z 5 X
+1.000000 1 Z 2 X 4 X 5 X
+-1.000000 1 Z 2 Y 5 Y
+1.000000 1 X 2 Z 3 X 4 Y 5 Y
+1.000000 1 Y 2 X 3 X 4 Y
+-1.000000 1 Z 2 X 3 Y 4 Y 5 Z
+1.000000 2 Z
+1.000000 3 Z
+"""
+
+# Construct H2
+H2 = pauli_sum_to_matrix(convert_to_format(H2_pauli, 5))
+
+print(are_unitarily_similar(H1, H2))
+
+"""
 # Get U_2
 U_2 = np.array([
     [1, 0, 0, 0],
@@ -169,86 +289,12 @@ U_2 = np.array([
     [0, 0, 0, 1]
 ], dtype=complex)
 
-# Create the full U matrix (I ⊗ U_2 ⊗ I ⊗ I)
-U_full = np.kron(np.kron(np.kron(I, U_2), U_2), I)
+# Create the full U matrix 
+U_full = np.kron(np.kron(I, U_2), I)
 
 # Conjugate H1 by U_full
 H1_conjugated = U_full @ H1 @ U_full.conj().T
-
-#print(matrix_to_pauli_sum(H1_conjugated))
-
-w = 1/np.sqrt(2)
-H2_pauli = [
-(w, 'X', 'X', 'I', 'I', 'I', 'I') ,
-(w, 'Y', 'Y', 'I', 'I', 'I', 'I') ,
-(w, 'X', 'X', 'Z', 'I', 'I', 'I') ,
-(w, 'Y', 'Y', 'Z', 'I', 'I', 'I') ,
-(-w, 'X', 'Z', 'X', 'I', 'I', 'I') ,
-(-w, 'Y', 'Z', 'Y', 'I', 'I', 'I') ,
-(w, 'X', 'I', 'X', 'I', 'I', 'I') ,
-(w, 'Y', 'I', 'Y', 'I', 'I', 'I') ,
-(0.25, 'I', 'I', 'Z', 'X', 'X', 'I') ,
-(0.25, 'I', 'I', 'Z', 'Y', 'Y', 'I') ,
-(0.25, 'I', 'Z', 'I', 'X', 'X', 'I') ,
-(0.25, 'I', 'Z', 'I', 'Y', 'Y', 'I') ,
-(-0.25, 'I', 'X', 'X', 'I', 'Z', 'I') ,
-(-0.25, 'I', 'X', 'X', 'Z', 'I', 'I') ,
-(-0.25, 'I', 'Y', 'Y', 'I', 'Z', 'I') ,
-(-0.25, 'I', 'Y', 'Y', 'Z', 'I', 'I') ,
-(0.25, 'I', 'X', 'X', 'X', 'X', 'I') ,
-(0.25, 'I', 'X', 'X', 'Y', 'Y', 'I') ,
-(0.25, 'I', 'Y', 'Y', 'X', 'X', 'I') ,
-(0.25, 'I', 'Y', 'Y', 'Y', 'Y', 'I') ,
-(0.5, 'I', 'X', 'I', 'X', 'I', 'I') ,
-(0.5, 'I', 'Y', 'I', 'Y', 'I', 'I') ,
-(0.5, 'I', 'X', 'Z', 'X', 'I', 'I') ,
-(0.5, 'I', 'Y', 'Z', 'Y', 'I', 'I') ,
-(0.5, 'I', 'X', 'Z', 'X', 'Z', 'I') ,
-(0.5, 'I', 'Y', 'Z', 'Y', 'Z', 'I') ,
-(-0.5, 'I', 'X', 'I', 'Z', 'X', 'I') ,
-(-0.5, 'I', 'Y', 'I', 'Z', 'Y', 'I') ,
-(-0.5, 'I', 'X', 'Z', 'Z', 'X', 'I') ,
-(-0.5, 'I', 'Y', 'Z', 'Z', 'Y', 'I') ,
-(0.5, 'I', 'X', 'Z', 'I', 'X', 'I') ,
-(0.5, 'I', 'Y', 'Z', 'I', 'Y', 'I') ,
-(-0.5, 'I', 'Z', 'X', 'X', 'I', 'I') ,
-(-0.5, 'I', 'Z', 'Y', 'Y', 'I', 'I') ,
-(0.5, 'I', 'I', 'X', 'X', 'I', 'I') ,
-(0.5, 'I', 'I', 'Y', 'Y', 'I', 'I') ,
-(0.5, 'I', 'I', 'X', 'X', 'Z', 'I') ,
-(0.5, 'I', 'I', 'Y', 'Y', 'Z', 'I') ,
-(0.5, 'I', 'Z', 'X', 'Z', 'X', 'I') ,
-(0.5, 'I', 'Z', 'Y', 'Z', 'Y', 'I') ,
-(-0.5, 'I', 'I', 'X', 'Z', 'X', 'I') ,
-(-0.5, 'I', 'I', 'Y', 'Z', 'Y', 'I') ,
-(0.5, 'I', 'I', 'X', 'I', 'X', 'I') ,
-(0.5, 'I', 'I', 'Y', 'I', 'Y', 'I') ,
-(w, 'I', 'I', 'I', 'X', 'I', 'X') ,
-(w, 'I', 'I', 'I', 'Y', 'I', 'Y') ,
-(w, 'I', 'I', 'I', 'X', 'Z', 'X') ,
-(w, 'I', 'I', 'I', 'Y', 'Z', 'Y') ,
-(-w, 'I', 'I', 'I', 'Z', 'X', 'X') ,
-(-w, 'I', 'I', 'I', 'Z', 'Y', 'Y') ,
-(w, 'I', 'I', 'I', 'I', 'X', 'X') ,
-(w, 'I', 'I', 'I', 'I', 'Y', 'Y') ,
-(1.0, 'I', 'I', 'Z', 'I', 'I', 'I') ,
-(-1.0, 'I', 'Z', 'I', 'I', 'I', 'I') ,
-(1.0, 'Z', 'I', 'Z', 'I', 'I', 'I') ,
-(1.0, 'Z', 'Z', 'I', 'I', 'I', 'I') ,
-(1.0, 'I', 'Z', 'Z', 'I', 'I', 'I') ,
-(0.75, 'I', 'I', 'Z', 'I', 'Z', 'I') ,
-(0.75, 'I', 'I', 'Z', 'Z', 'I', 'I') ,
-(0.75, 'I', 'Z', 'I', 'I', 'Z', 'I') ,
-(0.75, 'I', 'Z', 'I', 'Z', 'I', 'I') ,
-(1.0, 'I', 'I', 'I', 'Z', 'Z', 'I') ,
-(1.0, 'I', 'I', 'I', 'I', 'Z', 'Z') ,
-(1.0, 'I', 'I', 'I', 'Z', 'I', 'Z') ,
-(1.0, 'I', 'I', 'I', 'I', 'Z', 'I') ,
-(-1.0, 'I', 'I', 'I', 'Z', 'I', 'I')
-]
-
-# Construct H2
-H2 = pauli_sum_to_matrix(H2_pauli)
+"""
 
 # Prints 0 (or a number very close to 0) if equal 
-print(np.linalg.norm(H1_conjugated - H2))
+#print(np.linalg.norm(H1_conjugated - H2))

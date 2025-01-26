@@ -869,29 +869,49 @@ def apply_U2_rotation(AllPerms , AllDiags , spins):
 
     return AllPermsTransformed , AllDiagsTransformed
 
-def Clifford_xvec_zvec_onspins(Xvec , Zvec , Tableau , NumOfParticles):
-    SymplecticBlock = Tableau[:, :2*NumOfParticles]
-    PhaseColumn     = Tableau[:,  2*NumOfParticles]
+def Clifford_xvec_zvec_onspins(Xvec , Zvec , SymplecticBlock , NumOfParticles):
+    def compose_paulis(xa, za, pa, xb, zb, pb):
+        x_out = xa ^ xb
+        z_out = za ^ zb
+        overlap = np.sum(xa & zb)
+        p_out = (pa + pb + 2 * overlap) % 4
+        return x_out, z_out, p_out
 
-    ZXvecfinal = np.zeros(2*NumOfParticles, dtype=bool)
-    finalSign = False
+    def transform_basis_X(i, M, n):
+        v = np.zeros(2 * n, dtype=int)
+        v[i] = 1
+        newv = (v @ M) % 2
+        newX = newv[:n]
+        newZ = newv[n:]
+        base_phase = np.sum(newX & newZ) % 4
+        return newX, newZ, base_phase
+
+    def transform_basis_Z(i, M, n):
+        v = np.zeros(2 * n, dtype=int)
+        v[n + i] = 1
+        newv = (v @ M) % 2
+        newX = newv[:n]
+        newZ = newv[n:]
+        base_phase = np.sum(newX & newZ) % 4
+        return newX, newZ, base_phase
+
+    Xvecfinal = np.zeros(NumOfParticles, dtype=int)
+    Zvecfinal = np.zeros(NumOfParticles, dtype=int)
+    phase_final = 0
 
     for i in range(NumOfParticles):
-        if Zvec[i]:
-            ZXvecfinal  = np.logical_xor(ZXvecfinal, SymplecticBlock[i])
-            finalSign = np.logical_xor(finalSign, PhaseColumn[i])
+        if Xvec[i] == 1:
+            x2, z2, p2 = transform_basis_X(i, SymplecticBlock, NumOfParticles)
+            Xvecfinal, Zvecfinal, phase_final = compose_paulis(
+                Xvecfinal, Zvecfinal, phase_final, x2, z2, p2
+            )
+        if Zvec[i] == 1:
+            x2, z2, p2 = transform_basis_Z(i, SymplecticBlock, NumOfParticles)
+            Xvecfinal, Zvecfinal, phase_final = compose_paulis(
+                Xvecfinal, Zvecfinal, phase_final, x2, z2, p2
+            )
 
-    for i in range(NumOfParticles):
-        if Xvec[i]:
-            row_index = NumOfParticles + i
-            ZXvecfinal  = np.logical_xor(ZXvecfinal, SymplecticBlock[row_index])
-            finalSign = np.logical_xor(finalSign, PhaseColumn[row_index])
-
-    Xvecfinal = ZXvecfinal[:NumOfParticles].astype(int).tolist()
-    Zvecfinal = ZXvecfinal[NumOfParticles:2*NumOfParticles].astype(int).tolist()
-    finalSign = 1 if finalSign == False else -1
-
-    return Xvecfinal , Zvecfinal , finalSign
+    return Xvecfinal.tolist() , Zvecfinal.tolist() , 1j**phase_final
 
 def apply_global_clifford_rotation(AllPerms , AllDiags , NumOfParticles):
     """
@@ -899,15 +919,15 @@ def apply_global_clifford_rotation(AllPerms , AllDiags , NumOfParticles):
 
     Note: Application of the rotation on specified spins to be implemented
     """
-    CliffordTableau = random_clifford_tableau(NumOfParticles)
+    SymplecticBlock = random_clifford_tableau(NumOfParticles)
 
     AllPermsTransformed = []
     AllDiagsTransformed = []
 
     for i in range(len(AllDiags)):
         for j in range(len(AllDiags[i][1])):
-            NewPermutation , NewDiagonal , finalSign = Clifford_xvec_zvec_onspins(AllPerms[i] , AllDiags[i][1][j], CliffordTableau, NumOfParticles)
-            NewCoefficient = finalSign * AllDiags[i][0][j]
+            NewPermutation , NewDiagonal , phase_final = Clifford_xvec_zvec_onspins(AllPerms[i] , AllDiags[i][1][j] , SymplecticBlock , NumOfParticles)
+            NewCoefficient = phase_final * AllDiags[i][0][j]
             PermFound , index = permutation_found(NewPermutation , AllPermsTransformed)
 
             if not PermFound:
