@@ -31,8 +31,9 @@ for l in NSpinTriangularHeisPauliString(9):
 #AllPermsBinaryNew , AllDiagsBinaryNew = apply_single_body(AllPermsBinary, AllDiagsBinary , [1 , 2] , 'H')
 #AllPermsBinaryNew , AllDiagsBinaryNew = apply_single_body(AllPermsBinary, AllDiagsBinary , [] , 'S')
 #AllPermsBinaryNew , AllDiagsBinaryNew = apply_CNOT(AllPermsBinaryNew , AllDiagsBinaryNew , [tuple([0,1])])
-AllPermsBinaryNew , AllDiagsBinaryNew = apply_U2_rotation(AllPermsBinary , AllDiagsBinary , (1, 2))
-AllPermsBinaryNew , AllDiagsBinaryNew = apply_U2_rotation(AllPermsBinaryNew , AllDiagsBinaryNew , (3, 4))
+AllPermsBinaryNew , AllDiagsBinaryNew , CompactCliffordString = apply_global_clifford_rotation(AllPermsBinary , AllDiagsBinary , 5)
+print(CompactCliffordString)
+#AllPermsBinaryNew , AllDiagsBinaryNew = apply_U2_rotation(AllPermsBinaryNew , AllDiagsBinaryNew , (3, 4))
 
 IdentityIndex = -1
 PureDiagonalsNew = []

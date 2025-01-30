@@ -941,6 +941,8 @@ def apply_global_clifford_rotation(AllPerms , AllDiags , NumOfParticles):
     """
     SymplecticBlock = random_clifford_tableau(NumOfParticles)
 
+    print(SymplecticBlock)
+
     AllPermsTransformed = []
     AllDiagsTransformed = []
 
@@ -971,7 +973,9 @@ def apply_global_clifford_rotation(AllPerms , AllDiags , NumOfParticles):
                         # Update term
                         AllDiagsTransformed[index][0][index2] = NewCoefficient
 
-    return AllPermsTransformed , AllDiagsTransformed
+    compact_clifford_string = f"{len(SymplecticBlock)//2} {int(''.join(''.join(map(str, row)) for row in SymplecticBlock), 2)}"
+
+    return AllPermsTransformed , AllDiagsTransformed , compact_clifford_string
 
 # This function needs to be updated! 
 # def Toff_xvec_zvec_onspins(Xvec , Zvec , ToffTruple):
@@ -1075,6 +1079,14 @@ def generate_random_triple(N):
 
     return random.sample(range(N), 3)
 
+
+def expand_compact_clifford_tableau(CompactCliffordString):
+    size, number = CompactCliffordString.split()
+    size = int(size) * 2
+    binary_str = bin(int(number))[2:].zfill(size*size)
+    return [list(map(int, binary_str[i:i+size])) for i in range(0, len(binary_str), size)]
+
+
 def apply_random_transformation(Probabilities , AllPerms , AllDiags , NumOfParticles):
     """
     The input 'Probabilities' specifies the probability of single, two, or three body rotations
@@ -1098,14 +1110,13 @@ def apply_random_transformation(Probabilities , AllPerms , AllDiags , NumOfParti
     elif p < ProbOneBody + ProbTwoBody:
         # Apply two body rotation (CNOT)
         # randomly pick a tuple (i , j) and apply CNOT with control on i spin , and target at j spin...
-        
         CNOTPairs = generate_random_pairs(NumOfParticles)
         transformation = 'CNOT on the pairs ' + str(CNOTPairs) + ' applied' # The first term of the pair is the control spin and the second is the target!
         AllPermsT , AllDiagsT = apply_CNOT(AllPerms, AllDiags , CNOTPairs)
-    #elif p < ProbOneBody + ProbTwoBody + ProbNBody:
-    #    # Apply random N body Clifford rotation
-    #    transformation = 'Random global Clifford applied'
-    #    AllPermsT , AllDiagsT = apply_global_clifford_rotation(AllPerms , AllDiags, NumOfParticles)
+    elif p < ProbOneBody + ProbTwoBody + ProbNBody:
+        # Apply random N body Clifford rotation
+        AllPermsT , AllDiagsT , CompactCliffordString = apply_global_clifford_rotation(AllPerms , AllDiags, NumOfParticles)
+        transformation = CompactCliffordString
     else:
         # Apply two body U2 rotation
         # Randomly pick two spins
