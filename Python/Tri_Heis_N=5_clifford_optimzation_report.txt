@@ -1,0 +1,26 @@
+The total number of particles are: 5
+Optimization is initialized with the following cost...
+The initial cost is 10752.0 and all costs are {3: 256.0, 4: 0.0, 5: 10496.0}
+ 
+The new cost is 1088.0000000000002
+The transition probability is 1.0
+ 
+The transformation has been accepted!
+ 
+ 
+The new cost is 448.0000000000002
+The transition probability is 1.0
+ 
+The transformation has been accepted!
+ 
+ 
+The new cost is 64.0
+The transition probability is 1.0
+ 
+The transformation has been accepted!
+ 
+ 
+ 
+Here is the final report of the costs and transformations ... 
+The best cost is 64.0
+The best transformations is ['U2 on the pair [2 1] applied', 'U2 on the pair [4 3] applied', 'U2 on the pair [4 3] applied']
