@@ -26,21 +26,21 @@ def generate_fermi_hubbard_pauli_text(Lx, Ly, filename):
                 # right neighbor
                 if y + 1 < Ly:
                     j = idx(x, y + 1) + spin_offset
-                    z_string = ''.join(f"Z {k} " for k in range(i + 1, j))
-                    lines.append(f"-0.5 {z_string}X {i} X {j}")
+                    z_string = ''.join(f"{k} Z" for k in range(i + 1, j))
+                    lines.append(f"-0.5 {z_string} {i} X {j} X")
                 # down neighbor
                 if x + 1 < Lx:
                     j = idx(x + 1, y) + spin_offset
                     z_string = ''.join(f"Z {k} " for k in range(i + 1, j))
-                    lines.append(f"-0.5 {z_string}X {i} X {j}")
+                    lines.append(f"-0.5 {z_string} {i} X {j} X")
 
     # Add interaction terms
     for i in range(N):
         up = i
         down = i + N
-        lines.append(f"2.0 Z {up} Z {down}")
-        lines.append(f"-2.0 Z {up}")
-        lines.append(f"-2.0 Z {down}")
+        lines.append(f"2.0 {up} Z {down} Z")
+        lines.append(f"-2.0 {up} Z")
+        lines.append(f"-2.0 {down} Z")
         lines.append("2.0")
 
     # Add hopping terms for spin-up and spin-down
